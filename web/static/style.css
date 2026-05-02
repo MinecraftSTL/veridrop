@@ -257,6 +257,47 @@ code {
 .def-list dt { font-weight: 600; }
 .def-list dd { margin: 0; color: var(--muted); }
 
+/* combobox (custom dropdown — replaces native <datalist> for mobile reliability) */
+.combo { position: relative; width: 100%; }
+/* input doesn't auto-fill its block container; force 100% so the combo
+   matches the width of the sibling <select> in .field-row. */
+.combo > input { width: 100%; }
+.combo-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0; right: 0;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  max-height: 280px;
+  overflow-y: auto;
+  z-index: 20;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+  -webkit-overflow-scrolling: touch;
+}
+.combo-item {
+  padding: 11px 14px;
+  cursor: pointer;
+  font-size: 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", Consolas, monospace;
+  color: var(--text);
+  /* mobile: bigger tap target, easier to hit */
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.combo-item:hover, .combo-item.active {
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+.combo-item:active {
+  background: var(--green);
+  color: white;
+}
+.combo-item[hidden] { display: none; }
+
 /* FAQ */
 .faq { margin-top: 48px; }
 .faq h2 {

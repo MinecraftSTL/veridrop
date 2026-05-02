@@ -49,11 +49,18 @@
     <div class="field-row">
       <div class="field">
         <label for="model">目标模型</label>
-        <select id="model" name="model" required>
-          {% for m in models %}
-          <option value="{{ m.id }}"{% if m.id == 'claude-haiku-4-5' %} selected{% endif %}>{{ m.label }}</option>
-          {% endfor %}
-        </select>
+        <div class="combo">
+          <input type="text" id="model" name="model" required
+                 value="claude-haiku-4-5-20251001" autocomplete="off"
+                 placeholder="claude-haiku-4-5-20251001"
+                 maxlength="200" />
+          <ul class="combo-list" id="model-list" hidden>
+            {% for m in models %}
+            <li class="combo-item" data-value="{{ m.id }}">{{ m.label }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        <p class="hint">点击/聚焦可见预设模型;若中转站用 <code>claude-opus-4-7-thinking</code> 等自定义名,直接输入即可。</p>
       </div>
       <div class="field">
         <label for="mode">检测深度</label>

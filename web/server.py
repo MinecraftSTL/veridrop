@@ -37,19 +37,22 @@ _VALID_MODES = {"quick", "standard", "full"}
 
 
 def _model_choices() -> list[dict[str, str]]:
-    """Build the dropdown options. Order roughly follows recency / capability."""
-    order = [
-        "claude-opus-4-7", "claude-sonnet-4-6", "claude-haiku-4-5",
-        "claude-opus-4-6", "claude-sonnet-4-5", "claude-opus-4-5",
-        "claude-opus-4-1",
+    """Curated dropdown — 4 most-tested model names. Free-form input still
+    accepts anything; lookup_model() prefix-matches snapshot/alias forms.
+
+    We keep it short on purpose:
+    - Opus 4.7 + Opus 4.6: top-tier choices
+    - Sonnet 4.6: most popular
+    - Haiku 4.5 in snapshot form (-20251001) because some relays only route
+      the snapshot ID, not the bare alias.
+    """
+    suggestions = [
+        "claude-opus-4-7",
+        "claude-opus-4-6",
+        "claude-sonnet-4-6",
+        "claude-haiku-4-5-20251001",
     ]
-    out = []
-    for k in order:
-        info = MODELS.get(k)
-        if info is None:
-            continue
-        out.append({"id": k, "label": k})
-    return out
+    return [{"id": s, "label": s} for s in suggestions]
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -76,8 +79,13 @@ async def api_detect(
         raise HTTPException(status_code=400, detail="base_url must start with http(s)://")
     if not api_key or len(api_key) < 8:
         raise HTTPException(status_code=400, detail="api_key looks invalid")
-    if model not in MODELS:
-        raise HTTPException(status_code=400, detail=f"unknown model: {model}")
+    # Permissive model validation: relays often expose custom names like
+    # "claude-opus-4-7-thinking" or vendor-prefixed variants. Detectors
+    # use lookup_model() which does double-prefix matching and gracefully
+    # skips thinking/PDF probes for unknown models, so we let anything
+    # reasonable through and let the upstream relay decide what's valid.
+    if not model or len(model) > 200:
+        raise HTTPException(status_code=400, detail="model must be 1–200 chars")
     if mode not in _VALID_MODES:
         raise HTTPException(status_code=400, detail=f"mode must be one of {_VALID_MODES}")
 
