@@ -4,6 +4,7 @@ from .base import ActiveDetector, BaseDetector, PassiveDetector
 from .basic_request import BasicRequestDetector
 from .function_calling import FunctionCallingDetector
 from .integrity import IntegrityDetector
+from .long_context import LongContextDetector
 from .model_consistency import ModelConsistencyDetector
 from .protocol import ProtocolDetector
 from .structured_output import StructuredOutputDetector
@@ -19,6 +20,7 @@ def build_all() -> list[BaseDetector]:
         ProtocolDetector(),
         IntegrityDetector(),
         TokenBillingDetector(),
+        LongContextDetector(),
     ]
 
 
@@ -33,5 +35,6 @@ __all__ = [
     "ProtocolDetector",
     "IntegrityDetector",
     "TokenBillingDetector",
+    "LongContextDetector",
     "build_all",
 ]

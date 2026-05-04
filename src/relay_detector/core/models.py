@@ -35,6 +35,10 @@ class ExecutionConfig(BaseModel):
     strict_signature: bool = False
     use_cache: bool = True
     persist_cache: bool = False
+    # Opt-in long-context (needle-in-haystack) probe. Off by default because
+    # a single full run can cost $0.10–$0.50 (vs ~$0.005 for the rest of the
+    # full mode). Detectors that respect this flag must self-skip when False.
+    include_long_context: bool = False
 
     @classmethod
     def for_mode(cls, mode: Mode, **overrides: Any) -> ExecutionConfig:

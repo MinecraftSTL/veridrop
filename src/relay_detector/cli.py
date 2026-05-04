@@ -209,6 +209,15 @@ def detect(
     output: Optional[Path] = typer.Option(
         None, "--output", "-o", help="Write JSON report to this path.",
     ),
+    include_long_context: bool = typer.Option(
+        False,
+        "--long-context/--no-long-context",
+        help=(
+            "Opt in to needle-in-haystack long-context probing (32k → 100k → "
+            "200k tokens). Adds ~$0.05–$0.50 per run depending on relay "
+            "behaviour. Off by default."
+        ),
+    ),
 ) -> None:
     """Run a multi-detector quality check against a relay station."""
     if not base_url:
@@ -221,6 +230,7 @@ def detect(
     config = ExecutionConfig.for_mode(mode, max_concurrent=max_concurrent)
     if timeout is not None:
         config.request_timeout_s = timeout
+    config.include_long_context = include_long_context
 
     asyncio.run(_run_detect(base_url, api_key, model, config, output))
 

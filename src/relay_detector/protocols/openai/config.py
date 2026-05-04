@@ -13,6 +13,10 @@ DETECTOR_WEIGHTS: dict[str, float] = {
     "protocol": 15.0,
     "integrity": 15.0,
     "token_billing": 10.0,
+    # Heavier weight than other detectors because context-window fraud is
+    # one of the highest-impact lies a relay can tell. Skipped (0 effective
+    # weight) when ExecutionConfig.include_long_context is False.
+    "long_context": 15.0,
 }
 
 
@@ -31,6 +35,10 @@ MODE_DETECTORS: dict[Mode, set[str]] = {
         "integrity",
         "token_billing",
     },
+    # full mode includes long_context, but the detector self-skips unless
+    # ExecutionConfig.include_long_context is True. So default `--mode full`
+    # stays cheap (~$0.005); users who want long-context probing must
+    # explicitly opt in.
     Mode.FULL: set(DETECTOR_WEIGHTS.keys()),
 }
 
