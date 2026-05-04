@@ -4,6 +4,8 @@
 {% block description %}基于 {{ summary.total_reports }} 份社区公开检测数据,聚合 {{ summary.total_relays }} 家 AI API 中转站,按真实检测分数排序。识破假冒 Claude / GPT / Gemini 中转站,看哪些站真透传、哪些站协议有问题。{% endblock %}
 {% block og_title %}AI API 中转站红黑榜 · {{ summary.total_relays }} 家中转站真实评分{% endblock %}
 {% block og_description %}{{ summary.total_reports }} 份社区检测数据自动聚合,按分数排行。免费查阅,数据真实。{% endblock %}
+{% block canonical %}https://veridrop.org/leaderboard{% endblock %}
+{% block og_url %}https://veridrop.org/leaderboard{% endblock %}
 
 {% block head_extra %}
 <script type="application/ld+json">

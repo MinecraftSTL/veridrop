@@ -11,8 +11,10 @@
 {% block og_title %}{{ domain }} 是真 Claude / GPT / Gemini 吗?{{ "%.0f"|format(median) }}/100{% endblock %}
 {% block og_description %}{{ count }} 份 Veridrop 公开检测报告聚合,识别中转站协议合规、能力剥离、字段伪造。点击查看每份原始报告。{% endblock %}
 
+{% block canonical %}https://veridrop.org/leaderboard/{{ domain }}{% endblock %}
+{% block og_url %}https://veridrop.org/leaderboard/{{ domain }}{% endblock %}
+
 {% block head_extra %}
-<link rel="canonical" href="https://veridrop.org/leaderboard/{{ domain }}" />
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",

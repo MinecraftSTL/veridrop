@@ -9,11 +9,11 @@
   <meta property="og:type" content="website" />
   <meta property="og:title" content="{% block og_title %}Veridrop · AI API 中转站检测{% endblock %}" />
   <meta property="og:description" content="{% block og_description %}Claude 加密级验证与 OpenAI Chat Completions 检测已上线。{% endblock %}" />
-  <meta property="og:url" content="https://veridrop.org/" />
+  <meta property="og:url" content="{% block og_url %}https://veridrop.org/{% endblock %}" />
   <meta property="og:locale" content="zh_CN" />
   <meta name="twitter:card" content="summary_large_image" />
   {% block og_image %}{% endblock %}
-  <link rel="canonical" href="https://veridrop.org/" />
+  <link rel="canonical" href="{% block canonical %}https://veridrop.org/{% endblock %}" />
   <link rel="stylesheet" href="/static/style.css?v=20260504-1" />
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
   {% block head_extra %}{% endblock %}

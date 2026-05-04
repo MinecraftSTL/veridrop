@@ -8,6 +8,8 @@
 {% block description %}{{ seo_description or 'AI API 中转站检测报告' }}{% endblock %}
 {% block og_title %}{{ seo_title or '中转站检测报告 · Veridrop' }}{% endblock %}
 {% block og_description %}{{ seo_og_description or seo_description or 'AI API 中转站检测报告' }}{% endblock %}
+{% block canonical %}https://veridrop.org/r/{{ job_id }}{% endblock %}
+{% block og_url %}https://veridrop.org/r/{{ job_id }}{% endblock %}
 {# 微信 / 推特 / Reddit / Discord 分享时显示报告卡片 — JPG 由 /r/{id}.jpg
    按需渲染,1400×1000,内含分数、verdict、扣分项摘要。 #}
 {% block og_image %}
