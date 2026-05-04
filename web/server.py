@@ -610,13 +610,17 @@ async def llms_txt() -> Response:
     )
 
 
+# (loc, changefreq, priority, template_filename) — lastmod resolved at
+# request time from the template file's mtime. /leaderboard is special:
+# its content changes whenever a new report lands, so we override its
+# lastmod with the most recent report timestamp.
 _STATIC_SITEMAP_URLS = [
-    ("https://veridrop.org/", "weekly", "1.0"),
-    ("https://veridrop.org/claude", "weekly", "0.9"),
-    ("https://veridrop.org/openai", "weekly", "0.9"),
-    ("https://veridrop.org/gemini", "weekly", "0.9"),
-    ("https://veridrop.org/leaderboard", "daily", "0.85"),
-    ("https://veridrop.org/faq", "monthly", "0.8"),
+    ("https://veridrop.org/",            "weekly",  "1.0",  "hub.html"),
+    ("https://veridrop.org/claude",      "weekly",  "0.9",  "index.html"),
+    ("https://veridrop.org/openai",      "weekly",  "0.9",  "openai.html"),
+    ("https://veridrop.org/gemini",      "weekly",  "0.9",  "gemini.html"),
+    ("https://veridrop.org/leaderboard", "daily",   "0.85", "leaderboard.html"),
+    ("https://veridrop.org/faq",         "monthly", "0.8",  "faq.html"),
 ]
 
 _SITEMAP_REPORT_DIRS = [
@@ -627,25 +631,48 @@ _SITEMAP_REPORT_DIRS = [
 ]
 
 
+def _template_lastmod(filename: str) -> str:
+    """Date string from a template's mtime, or '' if missing/unreadable."""
+    try:
+        mtime = (TEMPLATE_DIR / filename).stat().st_mtime
+    except OSError:
+        return ""
+    return datetime.fromtimestamp(mtime, tz=timezone.utc).strftime("%Y-%m-%d")
+
+
 @app.get("/sitemap.xml")
 async def sitemap_xml() -> Response:
-    """Dynamic sitemap — static product pages + every public report URL.
+    """Dynamic sitemap — static product pages + reports + per-domain pages.
 
-    Each `/r/{job_id}` is a permanent landing page for "what does relay X
-    look like" long-tail search queries. Enumerating them turns a 50-job
-    backlog into 50 indexable pages with no extra content work.
-
-    Reports are flat .json files; we also emit lastmod from mtime so search
-    engines can revisit changed pages without crawling everything.
+    `lastmod` is included for every URL so search engines know when to
+    revisit. Static pages use the underlying template's mtime (≈ deploy
+    time); /leaderboard and /leaderboard/{domain} use the most recent
+    report timestamp since their content is data-driven.
     """
+    # Aggregate once: powers both /leaderboard's lastmod (max across all
+    # relays) and each /leaderboard/{domain} page's per-relay lastmod.
+    relays, _ = leaderboard.aggregate()
+    relay_last_checked = [r.last_checked for r in relays if r.last_checked]
+    leaderboard_lastmod = (
+        max(relay_last_checked).strftime("%Y-%m-%d")
+        if relay_last_checked else ""
+    )
+
     lines = ['<?xml version="1.0" encoding="UTF-8"?>',
              '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
-    for loc, freq, prio in _STATIC_SITEMAP_URLS:
-        lines.append(
-            f"  <url><loc>{loc}</loc>"
-            f"<changefreq>{freq}</changefreq>"
-            f"<priority>{prio}</priority></url>"
-        )
+
+    for loc, freq, prio, tpl in _STATIC_SITEMAP_URLS:
+        if loc.endswith("/leaderboard"):
+            # Data-driven page: lastmod follows the data, not the template.
+            lastmod = leaderboard_lastmod or _template_lastmod(tpl)
+        else:
+            lastmod = _template_lastmod(tpl)
+        line = f"  <url><loc>{loc}</loc>"
+        if lastmod:
+            line += f"<lastmod>{lastmod}</lastmod>"
+        line += f"<changefreq>{freq}</changefreq><priority>{prio}</priority></url>"
+        lines.append(line)
+
     seen: set[str] = set()
     for dir_path in _SITEMAP_REPORT_DIRS:
         if not dir_path.is_dir():
@@ -668,16 +695,17 @@ async def sitemap_xml() -> Response:
                 f"<priority>0.6</priority></url>"
             )
 
-    # Per-domain detail pages — primary long-tail SEO surface. Each one
-    # answers "what is {domain} relay like" with aggregated history.
-    for domain in leaderboard.all_domains():
-        if not leaderboard.is_valid_domain(domain):
+    # Per-domain detail pages — primary long-tail SEO surface. lastmod is
+    # the relay's most recent report so Google revisits whenever new data
+    # lands for that domain.
+    for r in relays:
+        if not leaderboard.is_valid_domain(r.domain):
             continue
-        lines.append(
-            f"  <url><loc>https://veridrop.org/leaderboard/{domain}</loc>"
-            f"<changefreq>weekly</changefreq>"
-            f"<priority>0.75</priority></url>"
-        )
+        line = f"  <url><loc>https://veridrop.org/leaderboard/{r.domain}</loc>"
+        if r.last_checked:
+            line += f"<lastmod>{r.last_checked.strftime('%Y-%m-%d')}</lastmod>"
+        line += "<changefreq>weekly</changefreq><priority>0.75</priority></url>"
+        lines.append(line)
 
     lines.append("</urlset>\n")
     return Response(
