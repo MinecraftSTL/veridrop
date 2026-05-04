@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+
+{% block title %}Gemini API 中转站检测 · OpenAI 兼容协议鉴定 | Veridrop{% endblock %}
+{% block description %}免费检测 Gemini API 中转站协议合规 — 通过 OpenAI 兼容路径(/v1/chat/completions)探测 7 项维度:协议规范、function calling、structured output、流式一致性、usage 字段、模型可用性。适配 Gemini 3 thinking-by-default 模型。{% endblock %}
+{% block og_title %}Gemini 中转站检测 · 适配 Gemini 3 thinking-by-default 模型{% endblock %}
+{% block og_description %}7 项 OpenAI 兼容协议检测,识别 Gemini 中转站协议合规度。免费、不留 key、可分享报告。{% endblock %}
+
+{% block head_extra %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Veridrop Gemini 中转站检测",
+  "alternateName": ["Gemini API 中转站检测", "Gemini relay verifier", "Google AI 中转站检测"],
+  "applicationCategory": "DeveloperApplication",
+  "applicationSubCategory": "API Verification Tool",
+  "operatingSystem": "Web Browser",
+  "url": "https://veridrop.org/gemini",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "featureList": [
+    "OpenAI 兼容协议(POST /chat/completions)合规检查",
+    "function calling 结构 + ID 校验",
+    "structured output / response_format 校验",
+    "Stream 与 non-stream 一致性比对",
+    "usage 字段规范检查",
+    "Gemini 3 thinking-by-default 模型适配",
+    "model 字段一致性 + 多次响应稳定性",
+    "可分享 JPG / HTML 报告"
+  ],
+  "description": "Veridrop 通过 OpenAI 兼容协议(POST /chat/completions)探测 Gemini 中转站,7 项检测覆盖协议合规、tool 调用、结构化输出、流式一致性、usage 字段。适配 Gemini 3 thinking-by-default 模型的特殊处理。"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {"@type":"Question","name":"为什么 Gemini API 中转站经常 model_not_found?","acceptedAnswer":{"@type":"Answer","text":"三种可能:① 中转站只代理部分 Gemini 模型(很多中转站只有 3.x preview 系列,没有 2.5);② 模型名拼写差异(gemini-2.5-flash vs models/gemini-2.5-flash);③ 模型已下架。Veridrop 提交前会做 preflight,500ms 内识别死模型并给出可用列表替代。"}},
+    {"@type":"Question","name":"Gemini 3.x preview 检测时 max_completion_tokens 应该填多少?","acceptedAnswer":{"@type":"Answer","text":"至少 64,推荐 128+。Gemini 3 默认开 thinking,会消耗 30-60 reasoning_tokens 才输出文本。如果 max 太小(< 32),thinking 占满后没空间出文本,响应就是空字符串 + finish_reason=length。Veridrop 的 detector 已经把 max 调到 64-384。"}},
+    {"@type":"Question","name":"Veridrop 为什么不支持 Gemini 原生 generateContent 路径?","acceptedAnswer":{"@type":"Answer","text":"99% 的第三方 Gemini 中转站只暴露 OpenAI 兼容协议,Google 官方也提供 OpenAI 兼容端点 /v1beta/openai。维护两套独立的检测逻辑成本高且容易引入翻译层导致结果失真,所以 Veridrop 集中在 OpenAI 兼容路径上做透。"}},
+    {"@type":"Question","name":"Gemini 中转站怎么挑?","acceptedAnswer":{"@type":"Answer","text":"三档:① 必须支持 gemini-2.5-flash 或 gemini-3-flash-preview(2026 stable);② Veridrop 上跑出 protocol 检测 ≥ 80;③ usage 字段没有 gemini_* 之外的异源残留(意味着没在转协议)。Veridrop 自动按推荐顺序排序中转站的模型列表。"}},
+    {"@type":"Question","name":"Google 官方 Gemini API 也能用 Veridrop 测吗?","acceptedAnswer":{"@type":"Answer","text":"可以。base_url 填 https://generativelanguage.googleapis.com/v1beta/openai,api_key 用 Google AI Studio 申请的 AIza... key。Google 官方端点应该全 7 项 100 分,可作为基线对比第三方中转站。"}},
+    {"@type":"Question","name":"为什么 Gemini 检测不能像 Claude 一样加密级验证?","acceptedAnswer":{"@type":"Answer","text":"因为 Gemini 协议本身没有同等级的服务端加密签名机制。Veridrop 对 Gemini 的检测定位是协议级 — 验证接口形状、能力完整度、usage 字段规范。不提供加密级真伪判断。"}}
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "如何检测 Gemini API 中转站",
+  "totalTime": "PT1M",
+  "estimatedCost": {"@type": "MonetaryAmount", "currency": "USD", "value": "0.005"},
+  "step": [
+    {"@type": "HowToStep", "name": "打开检测页", "text": "访问 https://veridrop.org/gemini"},
+    {"@type": "HowToStep", "name": "填中转站地址", "text": "Google 官方填 https://generativelanguage.googleapis.com/v1beta/openai;第三方中转站通常填 https://api.example.com/v1"},
+    {"@type": "HowToStep", "name": "粘贴 API key", "text": "Google 官方用 AIza... key,第三方中转站用 sk-... key"},
+    {"@type": "HowToStep", "name": "选模型 + 模式", "text": "推荐 gemini-2.5-flash 或 gemini-3-flash-preview,standard 模式约 40 秒"},
+    {"@type": "HowToStep", "name": "开始检测", "text": "点开始检测,等 30-70 秒拿到报告"},
+    {"@type": "HowToStep", "name": "对比 Google 官方基线", "text": "建议先测一次 Google 官方端点作为 100 分基线,再去对比第三方中转站的差距"}
+  ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+<section class="hero">
+  <h1>Gemini API 中转站检测</h1>
+  <p class="hero-sub answer-capsule" style="text-align:center;max-width:760px;margin:0 auto 14px;">
+    <strong>Veridrop</strong> 通过 OpenAI 兼容协议(<code>POST /chat/completions</code>)探测 Gemini 中转站,
+    <strong>7 项检测</strong>覆盖协议规范、function calling、structured output、流式一致性和 usage 字段。
+    适配 Gemini 3 <strong>thinking-by-default</strong> 模型的特殊处理。免费、API key 不留存、代码开源。
+  </p>
+</section>
+
+<section class="card alert-card">
+  <strong>协议级验证:</strong>
+  本检测验证 Gemini 中转站的 OpenAI 兼容协议实现是否完整,不提供加密级模型真伪证明。
+  Google 官方 OpenAI 兼容端点是
+  <code>https://generativelanguage.googleapis.com/v1beta/openai</code>;
+  第三方中转站通常在 <code>/v1</code> 暴露同样的协议。
+</section>
+
+<section class="card form-card">
+  <form id="detect-form" data-endpoint="/api/detect/gemini" autocomplete="off">
+    <div class="field">
+      <label for="base_url">中转站接口地址</label>
+      <input type="url" id="base_url" name="base_url" required
+             placeholder="https://generativelanguage.googleapis.com/v1beta/openai" />
+      <p class="hint">填到 <code>/chat/completions</code> 的上一级。Google 官方填 <code>/v1beta/openai</code>;第三方中转站通常填 <code>/v1</code>。</p>
+    </div>
+
+    <div class="field">
+      <label for="api_key">API 密钥</label>
+      <input type="password" id="api_key" name="api_key" required
+             placeholder="AIza... 或 sk-..." minlength="8" />
+      <p class="hint">仅用于本次检测,不写入报告、不持久化。会以 <code>Authorization: Bearer</code> 头发送。</p>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="model">目标模型</label>
+        <div class="combo">
+          <input type="text" id="model" name="model" required
+                 value="gemini-3-flash-preview" autocomplete="off"
+                 placeholder="gemini-3-flash-preview"
+                 maxlength="200" />
+          <ul class="combo-list" id="model-list" hidden>
+            {% for m in models %}
+            <li class="combo-item" data-value="{{ m.id }}">{{ m.label }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+      <div class="field">
+        <label for="mode">检测深度</label>
+        <select id="mode" name="mode">
+          <option value="quick">快速 (~15 秒,3 项)</option>
+          <option value="standard" selected>标准 (~45 秒,7 项)</option>
+          <option value="full">完整 (~70 秒,全 7 项)</option>
+        </select>
+      </div>
+    </div>
+
+    <button type="submit" id="submit-btn" class="btn btn-primary">
+      开始检测
+    </button>
+    <p class="form-error" id="form-error" hidden></p>
+  </form>
+</section>
+
+<section class="features">
+  <div class="feature">
+    <h3>OpenAI 兼容协议</h3>
+    <p>统一通过 <code>POST /chat/completions</code> 探测,覆盖 Google 官方 <code>/v1beta/openai</code> 和绝大多数第三方中转站的 <code>/v1</code> 端点。</p>
+  </div>
+  <div class="feature">
+    <h3>关键能力</h3>
+    <p>探测 tool 调用、JSON schema strict 模式、流式与非流式响应一致性,识别能力缺失或参数没有透传的中转层。</p>
+  </div>
+  <div class="feature">
+    <h3>用量字段</h3>
+    <p>检查 <code>usage.prompt_tokens / completion_tokens / total_tokens</code> 自洽性以及流式 <code>include_usage</code> 是否被中转站如实透传。</p>
+  </div>
+</section>
+
+<section class="faq" id="faq">
+  <h2>常见问题(精选)</h2>
+
+  <details class="faq-item" open>
+    <summary>为什么 Gemini API 中转站经常 model_not_found?</summary>
+    <div class="faq-body">
+      <p>三种可能:① 中转站只代理部分 Gemini 模型(很多中转站只有 3.x preview 系列,没有 2.5);
+        ② 模型名拼写差异(<code>gemini-2.5-flash</code> vs <code>models/gemini-2.5-flash</code>);
+        ③ 模型已下架。Veridrop 提交前会做 preflight,500ms 内识别死模型并给出可用列表替代。</p>
+    </div>
+  </details>
+
+  <details class="faq-item">
+    <summary>Gemini 3.x preview 检测时 max_completion_tokens 应该填多少?</summary>
+    <div class="faq-body">
+      <p>至少 64,推荐 128+。Gemini 3 默认开 thinking,会消耗 30-60 reasoning_tokens 才输出文本。
+        如果 max 太小(< 32),thinking 占满后没空间出文本,响应就是空字符串 + finish_reason=length。</p>
+    </div>
+  </details>
+
+  <details class="faq-item">
+    <summary>为什么不支持 Gemini 原生 <code>/v1beta/models/X:generateContent</code> 路径?</summary>
+    <div class="faq-body">
+      <p>99% 的第三方 Gemini 中转站只暴露 OpenAI 兼容协议,Google 官方也提供 OpenAI 兼容端点
+        <code>/v1beta/openai</code>。维护两套独立的检测逻辑成本高且容易引入翻译层导致结果失真,
+        所以集中在 OpenAI 兼容路径上做透。</p>
+    </div>
+  </details>
+
+  <details class="faq-item">
+    <summary>Google 官方 Gemini API 也能用 Veridrop 测吗?</summary>
+    <div class="faq-body">
+      <p>可以。base_url 填 <code>https://generativelanguage.googleapis.com/v1beta/openai</code>,
+        api_key 用 Google AI Studio 申请的 <code>AIza...</code> key。Google 官方端点应该全 7 项 100 分,
+        可作为基线对比第三方中转站。</p>
+    </div>
+  </details>
+
+  <p class="faq-more">
+    更多 Gemini 中转站问题 → <a href="/faq#gemini">/faq#gemini</a>
+    · 全部 <a href="/faq">常见问题</a>
+  </p>
+</section>
+
+{# app.js loaded globally by base.html #}
+{% endblock %}

@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}OpenAI API 中转站检测 · 识别 GPT 偷换 Claude 后端 | Veridrop{% endblock %}
+{% block description %}免费检测 OpenAI / GPT 中转站是不是真透传 — 通过 7 项 Chat Completions 协议检测 + usage 字段后端指纹识别,1 分钟看穿中转站是不是把 GPT 请求偷偷转给 Claude / Gemini 后端伪装。{% endblock %}
+{% block og_title %}OpenAI 中转站检测 · 1 分钟识破 GPT 偷换便宜模型{% endblock %}
+{% block og_description %}7 项检测 + usage 字段指纹识别 GPT 替身。免费、不留 key、可分享报告。{% endblock %}
+
+{% block head_extra %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Veridrop OpenAI 中转站检测",
+  "alternateName": ["OpenAI API 中转站检测", "GPT relay verifier", "ChatGPT 中转站检测"],
+  "applicationCategory": "DeveloperApplication",
+  "applicationSubCategory": "API Verification Tool",
+  "operatingSystem": "Web Browser",
+  "url": "https://veridrop.org/openai",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "featureList": [
+    "Chat Completions 协议合规检查",
+    "function calling 结构 + call_ ID 校验",
+    "structured output / response_format strict 模式校验",
+    "Stream 与 non-stream 一致性比对",
+    "usage 字段后端指纹识别(claude_*, gemini_*, usage_source 等)",
+    "model 字段一致性 + 多次响应稳定性",
+    "Token 用量异常检测",
+    "可分享 JPG / HTML 报告"
+  ],
+  "description": "Veridrop 通过 7 项 OpenAI Chat Completions 协议检测,1 分钟内验证 OpenAI / GPT 中转站是否真透传,识别中转站把 GPT 请求转给 Claude / Gemini 后端再包装的协议适配层指纹。"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {"@type":"Question","name":"OpenAI 中转站把 GPT 偷换成 Claude 怎么发现?","acceptedAnswer":{"@type":"Answer","text":"看响应的 usage 字段。原生 OpenAI 只有 prompt_tokens / completion_tokens / total_tokens 三个键。如果出现 claude_cache_creation_5_m_tokens、usage_source: anthropic、input_tokens / output_tokens(Anthropic 命名)等字段,基本可以判定中转站在做协议转换。Veridrop 把这种指纹标记为 critical 级别。"}},
+    {"@type":"Question","name":"我用的 GPT-4o 检测出 75 分,verdict 是 marginal,怎么解读?","acceptedAnswer":{"@type":"Answer","text":"75 分本身在通过区间,但如果有 critical 级别 issues(尤其 protocol detector 报多个 critical),Veridrop 会把 verdict 砍到 marginal — 圆圈变黄、提示存在风险。这通常意味着接口能用但中转站在做协议转换,实际跑的可能不是真的 GPT 模型。"}},
+    {"@type":"Question","name":"response_format json_schema strict 不生效是什么意思?","acceptedAnswer":{"@type":"Answer","text":"OpenAI strict 模式应该返回纯 JSON,不能包 Markdown 代码块。如果返回 Markdown 包裹的 JSON,有两种可能:① 中转站没透传 response_format 参数;② 透传了但底层模型(很可能不是 GPT)不理解 strict 模式。Veridrop 通过 markdown_json_seen 标志区分这两种情况。"}},
+    {"@type":"Question","name":"OpenAI 中转站测出来 0 个模型可用怎么办?","acceptedAnswer":{"@type":"Answer","text":"Veridrop 的预探测会列出该 key 在中转站上有多少模型属于本协议。如果当前页是 OpenAI 但 0 个 GPT 模型,会显示提示并自动建议去其他协议页(Claude / Gemini)继续检测。"}},
+    {"@type":"Question","name":"OpenAI 中转站检测覆盖哪些维度?","acceptedAnswer":{"@type":"Answer","text":"7 项:basic_request、model_consistency、function_calling、structured_output、protocol、integrity、token_billing。standard 模式约 40 秒,full 模式约 70 秒。"}},
+    {"@type":"Question","name":"为什么 OpenAI 检测不能像 Claude 一样加密级验证?","acceptedAnswer":{"@type":"Answer","text":"因为 OpenAI 协议本身没有同等级的服务端加密签名机制。Claude 有 thinking signature 这种独特的加密产物,中转站理论上无法伪造;OpenAI 的真伪只能靠协议合规度 + 后端指纹间接推断。所以 OpenAI 检测定位为行为/协议级,不宣称加密级真伪判断。"}}
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "如何检测 OpenAI / GPT 中转站协议合规",
+  "totalTime": "PT1M",
+  "estimatedCost": {"@type": "MonetaryAmount", "currency": "USD", "value": "0.005"},
+  "step": [
+    {"@type": "HowToStep", "name": "打开检测页", "text": "访问 https://veridrop.org/openai"},
+    {"@type": "HowToStep", "name": "填中转站地址", "text": "填 OpenAI-compatible base_url,例如 https://api.example.com 或 https://api.example.com/v1"},
+    {"@type": "HowToStep", "name": "粘贴 API key", "text": "粘贴你的 sk-... key,只用于本次检测"},
+    {"@type": "HowToStep", "name": "选模型 + 模式", "text": "选 gpt-4o-mini / gpt-4o / gpt-5 等,standard 模式约 40 秒"},
+    {"@type": "HowToStep", "name": "开始检测", "text": "点开始检测,等 30-70 秒拿到报告"},
+    {"@type": "HowToStep", "name": "看 usage 字段指纹", "text": "重点看 protocol detector 是否报 usage_contains_claude_fields / usage_source_non_openai 等 critical issue — 出现就基本说明中转站在转协议"}
+  ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+<section class="hero">
+  <h1>OpenAI / GPT 中转站检测</h1>
+  <p class="hero-sub answer-capsule" style="text-align:center;max-width:760px;margin:0 auto 14px;">
+    <strong>Veridrop</strong> 通过 7 项 Chat Completions 协议检测 + <strong>usage 字段后端指纹识别</strong>,
+    <strong>1 分钟</strong>识别中转站是真透传 GPT,还是把请求偷偷转给 Claude / Gemini 后端再伪装成 OpenAI 响应。免费、API key 不留存、代码开源。
+  </p>
+</section>
+
+<section class="card alert-card">
+  <strong>行为/协议级验证:</strong>
+  本检测无法可靠区分高配模型真品与低配模型伪装。我们检测的是中转站接口是否符合 OpenAI
+  Chat Completions 协议规范、能力是否完整、usage 字段是否符合官方响应形状。
+</section>
+
+<section class="card form-card">
+  <form id="detect-form" data-endpoint="/api/detect/openai" autocomplete="off">
+    <div class="field">
+      <label for="base_url">中转站接口地址</label>
+      <input type="url" id="base_url" name="base_url" required
+             placeholder="https://api.example.com/v1" />
+      <p class="hint">OpenAI-compatible 根 URL,可填 <code>https://api.example.com</code> 或 <code>https://api.example.com/v1</code>。</p>
+    </div>
+
+    <div class="field">
+      <label for="api_key">API 密钥</label>
+      <input type="password" id="api_key" name="api_key" required
+             placeholder="sk-..." minlength="8" />
+      <p class="hint">仅用于本次检测,不写入报告、不持久化。</p>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="model">目标模型</label>
+        <div class="combo">
+          <input type="text" id="model" name="model" required
+                 value="gpt-5.5" autocomplete="off"
+                 placeholder="gpt-5.5"
+                 maxlength="200" />
+          <ul class="combo-list" id="model-list" hidden>
+            {% for m in models %}
+            <li class="combo-item" data-value="{{ m.id }}">{{ m.label }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+      <div class="field">
+        <label for="mode">检测深度</label>
+        <select id="mode" name="mode">
+          <option value="quick">快速 (~15 秒,3 项)</option>
+          <option value="standard" selected>标准 (~40 秒,6 项)</option>
+          <option value="full">完整 (~70 秒,全 6 项)</option>
+        </select>
+      </div>
+    </div>
+
+    <button type="submit" id="submit-btn" class="btn btn-primary">
+      开始检测
+    </button>
+    <p class="form-error" id="form-error" hidden></p>
+  </form>
+</section>
+
+<section class="features">
+  <div class="feature">
+    <h3>Chat Completions</h3>
+    <p>验证 <code>chatcmpl-</code>、<code>chat.completion</code>、choices、finish_reason、usage 等官方响应结构。</p>
+  </div>
+  <div class="feature">
+    <h3>能力完整性</h3>
+    <p>执行 tool call 与 JSON schema 探测,识别把 OpenAI 协议包装成简化文本接口的中转层。</p>
+  </div>
+  <div class="feature">
+    <h3>字段差异</h3>
+    <p>记录 stream/non-stream 一致性与 usage 字段结构,识别常见包装层和协议适配异常。</p>
+  </div>
+</section>
+
+<section class="faq" id="faq">
+  <h2>常见问题(精选)</h2>
+
+  <details class="faq-item" open>
+    <summary>OpenAI 中转站把 GPT 偷换成 Claude 有什么直接证据?</summary>
+    <div class="faq-body">
+      <p>响应的 <code>usage</code> 字段是最直接的证据。真原生 OpenAI 只有
+        <code>prompt_tokens / completion_tokens / total_tokens</code>。如果发现
+        <code>claude_cache_creation_5_m_tokens</code>、<code>usage_source: anthropic</code> 等字段,
+        基本可以判定中转站在协议转换。Veridrop 标为 critical,直接拒绝该项 detector。</p>
+    </div>
+  </details>
+
+  <details class="faq-item">
+    <summary>我的 GPT-4o 检测出 75 分,verdict 是 marginal,怎么解读?</summary>
+    <div class="faq-body">
+      <p>75 分本身在「通过」区间,但如果有任何 critical 级别的 issues,
+        Veridrop 会把 verdict 砍到 marginal — 圆圈变黄、提示「存在风险」。
+        这通常意味着接口能用但中转站在做协议转换,实际跑的可能不是真的 GPT 模型。</p>
+    </div>
+  </details>
+
+  <details class="faq-item">
+    <summary>response_format=json_schema strict 不生效是什么意思?</summary>
+    <div class="faq-body">
+      <p>OpenAI strict 模式应该返回纯 JSON。如果返回 ```json {...} ``` 格式,有两种可能:
+        ① 中转站没透传 response_format 参数;② 透传了但底层模型(很可能不是 GPT)不理解 strict 模式。</p>
+    </div>
+  </details>
+
+  <details class="faq-item">
+    <summary>OpenAI 中转站测出来 0 个模型可用怎么办?</summary>
+    <div class="faq-body">
+      <p>Veridrop 的预探测会列出该 key 在中转站上有多少模型属于本协议。如果是 0,
+        会显示一个黄色卡片提示「该 key 在此中转站没有 GPT 模型,但有 X 个 Claude 模型 → 一键跳转测那边」。</p>
+    </div>
+  </details>
+
+  <p class="faq-more">
+    更多 OpenAI 中转站问题 → <a href="/faq#openai">/faq#openai</a>
+    · 全部 <a href="/faq">常见问题</a>
+  </p>
+</section>
+
+{# app.js loaded globally by base.html #}
+{% endblock %}

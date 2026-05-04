@@ -54,19 +54,40 @@ _BG = (255, 255, 255)
 _TILE_BG = (249, 250, 251)
 
 
-# 10 detector display labels — Chinese, same order as the result page.
-_DETECTOR_LABELS = [
-    ("identity", "身份一致性"),
-    ("behavioral_signature", "行为签名验证"),
-    ("thinking_signature", "思维签名验证"),
-    ("consistency", "模型一致性"),
-    ("knowledge", "知识准确度"),
-    ("pdf", "PDF 文档识别"),
-    ("structured_output", "结构化输出"),
-    ("protocol", "协议规范性"),
-    ("integrity", "响应完整性"),
-    ("message_id", "消息标识规范"),
-]
+# Detector display labels — Chinese, same order as the result page.
+_DETECTOR_LABELS = {
+    "anthropic": [
+        ("identity", "身份一致性"),
+        ("behavioral_signature", "行为签名验证"),
+        ("thinking_signature", "思维签名验证"),
+        ("consistency", "模型一致性"),
+        ("knowledge", "知识准确度"),
+        ("pdf", "PDF 文档识别"),
+        ("structured_output", "结构化输出"),
+        ("protocol", "协议规范性"),
+        ("integrity", "响应完整性"),
+        ("token_usage", "Token 用量"),
+        ("message_id", "消息标识规范"),
+    ],
+    "openai": [
+        ("basic_request", "基础请求"),
+        ("model_consistency", "模型一致性"),
+        ("function_calling", "函数调用"),
+        ("structured_output", "结构化输出"),
+        ("protocol", "协议规范性"),
+        ("integrity", "流式一致性"),
+        ("token_billing", "Token 计费"),
+    ],
+    "gemini": [
+        ("basic_request", "基础请求"),
+        ("model_info", "模型响应形状"),
+        ("function_calling", "函数调用"),
+        ("structured_output", "结构化输出"),
+        ("protocol", "协议规范性"),
+        ("integrity", "流式一致性"),
+        ("token_usage", "Token 用量"),
+    ],
+}
 
 
 def _status_label(status: str, score: float) -> tuple[str, tuple[int, int, int]]:
@@ -82,7 +103,7 @@ def _status_label(status: str, score: float) -> tuple[str, tuple[int, int, int]]
 
 
 def _verdict_color(score: float, verdict: str) -> tuple[int, int, int]:
-    if score >= 85 and verdict == "passed":
+    if verdict == "passed" and score >= 85:
         return _GREEN
     if verdict == "passed":
         return _GREEN_DARK
@@ -91,15 +112,21 @@ def _verdict_color(score: float, verdict: str) -> tuple[int, int, int]:
     return _RED
 
 
-def _verdict_caption(score: float, verdict: str) -> str:
-    if score >= 95:
+def _verdict_caption(score: float, verdict: str, protocol: str = "anthropic") -> str:
+    """Mirrors result.html so JPG export and HTML report agree.
+
+    verdict is the source of truth. scorer.effective_verdict() may downgrade
+    a high-scoring run to marginal when critical issues are present, so the
+    caption needs to follow verdict, not raw score thresholds.
+    """
+    if verdict == "passed" and score >= 95 and protocol == "anthropic":
         return "完全一致"
-    if score >= 85:
-        return "优秀"
+    if verdict == "passed" and score >= 85:
+        return "协议表现良好" if protocol in {"openai", "gemini"} else "优秀"
     if verdict == "passed":
-        return "通过"
+        return "基本通过" if protocol in {"openai", "gemini"} else "通过"
     if verdict == "marginal":
-        return "基本合格"
+        return "存在风险" if protocol in {"openai", "gemini"} else "基本合格"
     return "未达标"
 
 
@@ -145,11 +172,8 @@ def _draw_circle_score(d: ImageDraw.ImageDraw, cx: int, cy: int, radius: int,
         fill=_BG,
     )
 
-    # score text — show integer if whole, else 1 decimal
-    if abs(score - round(score)) < 0.05:
-        score_text = f"{int(round(score))}%"
-    else:
-        score_text = f"{score:.1f}%"
+    # score text — keep share images clean and compact.
+    score_text = f"{int(round(score))}%"
     score_font = _load_font(74, bold=True)
     bbox = d.textbbox((0, 0), score_text, font=score_font)
     tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
@@ -215,6 +239,77 @@ def _tokens_per_second(report: dict[str, Any]) -> float | None:
     return round(out * 1000.0 / latency_ms, 1)
 
 
+def _openai_jpg_note(report: dict[str, Any]) -> str:
+    if str(report.get("protocol") or "") != "openai":
+        return ""
+    results = {
+        r.get("name"): r for r in report.get("results", [])
+        if isinstance(r, dict)
+    }
+    structured = results.get("structured_output") or {}
+    if structured.get("status") != "pass":
+        details = structured.get("details") or {}
+        if isinstance(details, dict) and details.get("markdown_json_seen"):
+            return (
+                "结构化输出未生效: 已发送 json_schema strict=true,但返回了 Markdown 文本。"
+            )
+        return "结构化输出未通过: 返回内容不能按 JSON schema 解析。"
+
+    token_billing = results.get("token_billing") or {}
+    if token_billing.get("status") == "skip":
+        return "Token 计费无法判断: 接口没有返回足够完整的 Token 用量信息。"
+    if token_billing.get("status") == "fail":
+        return "Token 计费存在风险: 返回的 Token 统计有明显偏差。"
+
+    protocol = results.get("protocol") or {}
+    details = protocol.get("details") or {}
+    if isinstance(details, dict):
+        for issue in details.get("issues") or []:
+            if not isinstance(issue, dict):
+                continue
+            if issue.get("code") in {
+                "usage_contains_claude_fields",
+                "usage_source_anthropic",
+                "usage_mixed_token_fields",
+            }:
+                return "协议提示: usage 字段带有非 OpenAI 适配层痕迹。"
+    return ""
+
+
+def _anthropic_jpg_note(report: dict[str, Any]) -> str:
+    if str(report.get("protocol") or "anthropic") != "anthropic":
+        return ""
+    results = {
+        r.get("name"): r for r in report.get("results", [])
+        if isinstance(r, dict)
+    }
+    token_usage = results.get("token_usage") or {}
+    if token_usage.get("status") == "skip":
+        return "Token 用量无法判断: 接口没有返回完整 usage 字段。"
+    if token_usage.get("status") == "fail":
+        return "Token 用量存在风险: usage 字段缺失或统计偏差明显。"
+    return ""
+
+
+def _gemini_jpg_note(report: dict[str, Any]) -> str:
+    if str(report.get("protocol") or "") != "gemini":
+        return ""
+    results = {
+        r.get("name"): r for r in report.get("results", [])
+        if isinstance(r, dict)
+    }
+    structured = results.get("structured_output") or {}
+    if structured.get("status") != "pass":
+        return "结构化输出未生效: 已要求 JSON,但返回内容无法按 schema 解析。"
+    token_usage = results.get("token_usage") or {}
+    if token_usage.get("status") == "fail":
+        return "Token 用量存在风险: usage 字段不完整或统计不自洽。"
+    integrity = results.get("integrity") or {}
+    if integrity.get("status") == "fail":
+        return "流式响应存在偏差: stream 与 non-stream 没有完全对齐。"
+    return ""
+
+
 def render_report_jpg(report: dict[str, Any]) -> bytes:
     """Render the report into a JPG and return the bytes."""
     W, H = 1400, 1000
@@ -223,7 +318,14 @@ def render_report_jpg(report: dict[str, Any]) -> bytes:
 
     # ------- header -------
     title_font = _load_font(34, bold=True)
-    d.text((60, 50), "中转站检测报告", fill=_TEXT, font=title_font)
+    protocol = str(report.get("protocol") or "anthropic")
+    if protocol == "openai":
+        title = "OpenAI 中转站检测报告"
+    elif protocol == "gemini":
+        title = "Gemini 中转站检测报告"
+    else:
+        title = "中转站检测报告"
+    d.text((60, 50), title, fill=_TEXT, font=title_font)
 
     # share/brand pill in top-right
     pill_font = _load_font(18)
@@ -251,7 +353,7 @@ def render_report_jpg(report: dict[str, Any]) -> bytes:
     score = float(report.get("total_score", 0.0))
     verdict = report.get("verdict", "failed")
     ring = _verdict_color(score, verdict)
-    caption = _verdict_caption(score, verdict)
+    caption = _verdict_caption(score, verdict, protocol)
 
     circle_cx, circle_cy = 280, 420
     circle_r = 175
@@ -306,12 +408,15 @@ def render_report_jpg(report: dict[str, Any]) -> bytes:
         if isinstance(r, dict)
     }
 
-    for i, (name, label) in enumerate(_DETECTOR_LABELS):
+    labels = _DETECTOR_LABELS.get(protocol, _DETECTOR_LABELS["anthropic"])
+    for i, (name, label) in enumerate(labels):
         ry = rows_top + i * row_h
         result = by_name.get(name) or {}
         status = str(result.get("status") or "skip")
         score_v = float(result.get("score", 0.0))
         status_text, status_color = _status_label(status, score_v)
+        if name in {"token_billing", "token_usage"} and status == "skip":
+            status_text = "无法判断"
 
         # icon
         icon_cx = rows_x + 22
@@ -341,11 +446,36 @@ def render_report_jpg(report: dict[str, Any]) -> bytes:
         )
 
         # row divider
-        if i < len(_DETECTOR_LABELS) - 1:
+        if i < len(labels) - 1:
             d.line(
                 [(rows_x, ry + row_h), (rows_x + rows_w, ry + row_h)],
                 fill=_LINE, width=1,
             )
+
+    # Plain-language note for share images. Keep it short so the JPG remains
+    # readable on mobile and social previews.
+    if protocol == "gemini":
+        note = _gemini_jpg_note(report)
+    elif protocol == "openai":
+        note = _openai_jpg_note(report)
+    else:
+        note = _anthropic_jpg_note(report)
+    if note:
+        note_font = _load_font(17)
+        note_y = rows_top + len(labels) * row_h + 36
+        d.rounded_rectangle(
+            (rows_x, note_y, rows_x + rows_w, note_y + 54),
+            radius=8,
+            fill=(255, 251, 235),
+            outline=(253, 230, 138),
+            width=1,
+        )
+        d.text(
+            (rows_x + 18, note_y + 16),
+            note[:64],
+            fill=(146, 64, 14),
+            font=note_font,
+        )
 
     # ------- bottom: metric tiles -------
     perf = report.get("performance") or {}

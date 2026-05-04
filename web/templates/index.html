@@ -1,20 +1,63 @@
 {% extends "base.html" %}
 
-{% block title %}Claude API 中转站真伪检测 · 一键鉴定工具 | Veridrop{% endblock %}
-{% block description %}免费在线检测 Claude API 中转站真假。10 项加密级与协议级技术穿透,涵盖 thinking 签名、tool_use 鉴定、字段级 baseline 对比,1 分钟出报告,支持 Opus 4.7 / Sonnet 4.6 / Haiku 4.5。{% endblock %}
+{% block title %}Claude API 中转站真假检测 · thinking 签名加密验证 | Veridrop{% endblock %}
+{% block description %}免费检测 Claude API 中转站是不是真原生 — 利用 Anthropic 服务端 thinking signature(中转站无法伪造)+ 10 项辅助检测,并检查 Token 用量是否虚报。无需注册,API key 不留存,代码开源。{% endblock %}
+{% block og_title %}Claude API 中转站真假检测 · 1 分钟识破 Kiro / Amazon Q 等替身{% endblock %}
+{% block og_description %}加密级 thinking signature 验证 + 10 项辅助检测 + Token 用量虚报识别。免费、不留 key、可分享 JPG 报告。{% endblock %}
 
 {% block head_extra %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Veridrop Claude 中转站检测",
+  "alternateName": ["Claude API 中转站检测", "Claude relay verifier"],
+  "applicationCategory": "DeveloperApplication",
+  "applicationSubCategory": "API Verification Tool",
+  "operatingSystem": "Web Browser",
+  "url": "https://veridrop.org/claude",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "featureList": [
+    "thinking signature 加密级真伪验证(业内独家)",
+    "11 项独立检测维度(身份/行为/知识/PDF/工具调用/协议/流式/Token 用量)",
+    "字段级跟官方 Anthropic baseline 1:1 对比",
+    "Stream / non-stream 一致性校验",
+    "tool_use ID 前缀合规检查",
+    "PDF 多模态能力检测",
+    "Kiro / Amazon Q / Bedrock 替身识别",
+    "可分享 JPG / HTML 报告"
+  ],
+  "description": "Veridrop 通过 Claude thinking signature 等 11 项检测维度,1 分钟内验证 AI API 中转站是否真实透传 Claude 模型,识别用 Kiro / Amazon Q / Bedrock 等后端伪装的中转站,并检查 Token 用量是否虚报。"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
   "@type": "FAQPage",
   "mainEntity": [
-    {"@type":"Question","name":"什么是 API 中转站鉴定?","acceptedAnswer":{"@type":"Answer","text":"对 Claude API 中转站发起多轮探测请求,通过响应字段、知识表现、身份一致性、思维链签名指纹等多个维度交叉判断,识别中转站是否真正稳定转发原生 Claude API,还是存在伪装、协议不一致或能力掺水。"}},
-    {"@type":"Question","name":"什么是 API 中转站?","acceptedAnswer":{"@type":"Answer","text":"API 中转站位于用户和上游模型服务之间,负责转发请求、统一计费、切换渠道,或将多个模型接口包装成同一种调用方式。优势是接入方便、价格灵活;同时也意味着用户并不直接面对原始模型提供商。"}},
-    {"@type":"Question","name":"API 中转站有什么样的隐患?","acceptedAnswer":{"@type":"Answer","text":"常见风险包括返回协议与官方不一致、模型身份被替换、知识表现异常、响应内容被二次加工、日志与密钥处理不透明、服务稳定性依赖单一上游。一些站点还会高配低卖,表面是某个模型,实际转发到能力较低的模型。"}},
-    {"@type":"Question","name":"Veridrop 是怎么识别真假中转站的?","acceptedAnswer":{"@type":"Answer","text":"通过 10 项独立检测,每项都对照官方 Anthropic 基线做字段级 1:1 比对。其中思维签名验证 (thinking signature) 利用 Claude 服务端返回的加密签名字段,无法被任何中转站伪造,是最强的真伪判定指标。"}},
-    {"@type":"Question","name":"检测会不会消耗我的 API 余额?","acceptedAnswer":{"@type":"Answer","text":"会,但成本极低。完整模式约发送 13 个请求,Haiku 模型下成本约 $0.02,Opus 4.7 下约 $0.08。这些费用从你提交的 API key 对应的中转站账户扣除,Veridrop 不收取任何技术费。"}},
-    {"@type":"Question","name":"支持哪些 Claude 模型?","acceptedAnswer":{"@type":"Answer","text":"目前支持 Claude Opus 4.7、Sonnet 4.6、Haiku 4.5、Opus 4.6、Sonnet 4.5、Opus 4.5、Opus 4.1。OpenAI 和 Gemini 协议暂不支持。"}}
+    {"@type":"Question","name":"Claude API 中转站怎么验证真假?","acceptedAnswer":{"@type":"Answer","text":"用 thinking signature 加密级验证 — Claude 启用扩展思考时返回 500-2000 字符的服务端加密签名,中转站理论上无法伪造。Veridrop 把这个作为 25% 权重的核心检测项,任何中转站若返回不出这个签名(或长度异常),即可判定为非真品 Claude。"}},
+    {"@type":"Question","name":"Kiro / Amazon Q / Bedrock 假冒 Claude 怎么识破?","acceptedAnswer":{"@type":"Answer","text":"Kiro / Amazon Q / Bedrock 是 Amazon 的 Claude 替身网关,响应没有 Claude thinking signature(它们走的是 AWS Bedrock 的简化接口,不返回服务端签名)。Veridrop 在 thinking_signature 检测上会直接判 0 分,fail 整体检测。"}},
+    {"@type":"Question","name":"Veridrop 的 Claude 检测覆盖哪些维度?","acceptedAnswer":{"@type":"Answer","text":"11 项,按权重:thinking signature (25%) > behavioral signature (15%) > structured output (12%) > consistency / knowledge / token usage (各 10%) > pdf (8%) > identity / protocol / integrity / message_id (各 5%)。standard 模式跑 9 项约 45 秒,full 模式跑全 11 项约 75 秒。"}},
+    {"@type":"Question","name":"检测会不会消耗我的 API 余额?","acceptedAnswer":{"@type":"Answer","text":"会,但成本极低。完整模式约发 16 个请求,Haiku 约 0.012 美元量级,Sonnet / Opus 更高。费用从你的 API key 对应中转站账户扣,Veridrop 自身不收费。"}},
+    {"@type":"Question","name":"Veridrop 会偷我的 API key 吗?","acceptedAnswer":{"@type":"Answer","text":"不会。API key 只存在 job 内存对象里,job 跑完(成功或失败)立即清空,不写报告 JSON、不写日志、不写磁盘。报告里 key 是脱敏形式 (sk-y7xU••••••0h)。代码完全开源可验证,也可以自己 clone 部署。"}},
+    {"@type":"Question","name":"支持哪些 Claude 模型?","acceptedAnswer":{"@type":"Answer","text":"Claude Opus 4.7、Sonnet 4.6、Haiku 4.5、Opus 4.6、Sonnet 4.5、Opus 4.5、Opus 4.1。检测器自动适配各模型的 thinking 模式(extended vs adaptive)和 PDF 页数上限。"}}
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "如何检测 Claude API 中转站是不是真原生",
+  "totalTime": "PT1M",
+  "estimatedCost": {"@type": "MonetaryAmount", "currency": "USD", "value": "0.02"},
+  "step": [
+    {"@type": "HowToStep", "name": "打开检测页", "text": "访问 https://veridrop.org/claude"},
+    {"@type": "HowToStep", "name": "填中转站地址", "text": "在 base_url 输入框填中转站根 URL,例如 https://api.example.com"},
+    {"@type": "HowToStep", "name": "粘贴 API key", "text": "在 API 密钥框粘贴你的 sk-... key,只用于本次检测,不会被记录"},
+    {"@type": "HowToStep", "name": "选模型 + 模式", "text": "下拉自动列出该 key 在该中转站可用的模型,选 standard 模式覆盖 9 项检测约 45 秒"},
+    {"@type": "HowToStep", "name": "开始检测", "text": "点开始检测,等 30-75 秒拿到报告"},
+    {"@type": "HowToStep", "name": "看 thinking signature", "text": "重点看 thinking_signature 一项是否拿到 100 分 — 这是最强的真伪指标。0 分基本可判定为非真品 Claude"}
   ]
 }
 </script>
@@ -24,14 +67,14 @@
 
 <section class="hero">
   <h1>这家 Claude API 中转站,是真原生吗?</h1>
-  <p class="hero-sub">
-    输入任意中转站的 <code>base_url</code> 与 <code>api_key</code>,Veridrop 将通过 10 项加密级与协议级检测,
-    对照官方 Anthropic 接口逐字段 1:1 比对,1 分钟内给你一份可分享的鉴定报告。
+  <p class="hero-sub answer-capsule" style="text-align:center;max-width:760px;margin:0 auto 14px;">
+    <strong>Veridrop</strong> 用 Claude <strong>thinking signature 加密级验证</strong>(Anthropic 服务端签名,中转站不可伪造)+ 10 项辅助检测,
+    <strong>1 分钟</strong>识别中转站是真原生透传,还是用 Kiro / Amazon Q / Bedrock 等替身伪装。免费、API key 不留存、代码开源。
   </p>
 </section>
 
 <section class="card form-card">
-  <form id="detect-form" autocomplete="off">
+  <form id="detect-form" data-endpoint="/api/detect/claude" autocomplete="off">
     <div class="field">
       <label for="base_url">中转站接口地址</label>
       <input type="url" id="base_url" name="base_url" required
@@ -66,8 +109,8 @@
         <label for="mode">检测深度</label>
         <select id="mode" name="mode">
           <option value="quick">快速 (~15 秒,5 项核心)</option>
-          <option value="standard">标准 (~40 秒,8 项)</option>
-          <option value="full" selected>完整 (~70 秒,全 10 项,推荐)</option>
+          <option value="standard">标准 (~45 秒,9 项)</option>
+          <option value="full" selected>完整 (~75 秒,全 11 项,推荐)</option>
         </select>
       </div>
     </div>
@@ -96,174 +139,52 @@
 
 <!-- ============================== FAQ ============================== -->
 <section class="faq" id="faq">
-  <h2>常见问题</h2>
+  <h2>常见问题(精选)</h2>
 
   <details class="faq-item" open>
-    <summary>什么是 API 中转站鉴定?</summary>
+    <summary>thinking signature 是什么?为什么是真伪验证的金标准?</summary>
     <div class="faq-body">
-      <p>这个工具用于<strong>快速判断一个 Claude API 中转站</strong>到底是稳定转发真实模型接口,还是存在包装、伪装、协议不一致或能力掺水的情况。Veridrop 会通过多轮结构化探测请求,对接口返回结构、知识表现、身份一致性、思维链痕迹和加密签名指纹进行交叉判断,得出 0–100 的综合评分。</p>
-      <p>它<strong>不是法律意义上的审计报告</strong>,也不承诺百分之百准确,但可以在你购买、集成、长期使用某个中转站之前,做一次低成本的技术核验,显著降低踩坑风险。</p>
+      <p>thinking signature 是 Claude 启用扩展思考时,响应里 <code>signature</code> 字段返回的
+        <strong>服务端加密产物</strong>,长度 500-2000 字符。这个签名由 Anthropic 服务端生成,
+        带加密验证 — <strong>中转站理论上无法伪造</strong>。Veridrop 把它作为 25% 权重的核心检测项,
+        任何中转站若返回不出这个签名(或长度异常),即可判定为非真品 Claude。</p>
     </div>
   </details>
 
   <details class="faq-item">
-    <summary>什么是 API 中转站?</summary>
+    <summary>Claude code 中转站怎么挑?</summary>
     <div class="faq-body">
-      <p>API 中转站(也叫"镜像站"、"代理站"、"分发站")通常位于用户和上游模型服务(如 Anthropic 官方 API)之间,负责<strong>转发请求、统一计费、切换渠道</strong>,或者把多个模型接口包装成同一种调用方式。</p>
-      <p>它的价值在于:接入方便(无需海外信用卡和身份验证)、价格灵活(可批发议价)、可做聚合与分发。但同时也意味着<strong>你并不是直接面对原始模型提供商</strong>,中间多了一层不可控的环节。</p>
+      <p>关键看 4 点:① 跑一次 Veridrop 看 thinking signature 是否拿到 100 分;
+        ② 看 usage 里有没有 <code>claude_*</code> 之外的异源字段;
+        ③ 看 stream / non-stream 一致性;
+        ④ 看消息 id 是否符合 <code>msg_</code> / <code>toolu_</code> / <code>srvtoolu_</code> 前缀规范。</p>
     </div>
   </details>
 
   <details class="faq-item">
-    <summary>API 中转站有什么样的隐患?常见骗局有哪些?</summary>
+    <summary>Kiro / Amazon Q 假冒 Claude 怎么识破?</summary>
     <div class="faq-body">
-      <p>Claude API 中转站市场鱼龙混杂,常见隐患包括:</p>
-      <ul>
-        <li><strong>模型身份被替换</strong>:你以为充的是 Claude Opus,实际转给了 Sonnet、Haiku,甚至换成了别家模型(如 GPT、Kiro IDE 等)。</li>
-        <li><strong>能力降级</strong>:PDF、Tool Use、Thinking 等高级功能被中转站静默剥离,你的请求看似成功,实则没用上完整能力。</li>
-        <li><strong>返回协议与官方不一致</strong>:消息 ID 用 UUID 替代 <code>msg_</code>,tool_use ID 硬编码为 <code>tool_1</code>,SSE 事件序列残缺。</li>
-        <li><strong>知识表现异常</strong>:模型回答 Anthropic 公司常识题时频繁错误,自报身份是其他厂家。</li>
-        <li><strong>响应被二次加工</strong>:输入 token 数与官方不一致(被注入隐藏 prefix)、输出被截断或过滤。</li>
-        <li><strong>密钥与日志透明度低</strong>:你的 API key 被记录、用于其他用户、甚至转售,无法核实。</li>
-        <li><strong>服务稳定性差</strong>:依赖单一上游账号,一旦封号、限流,所有用户一起断流。</li>
-        <li><strong>跑路风险</strong>:充值大额后短时间内站长卷款消失。</li>
-      </ul>
-      <p>Veridrop 的 10 项检测正是针对以上每一类隐患设计——比如 Identity Consistency 检测身份替换,Structured Output 检测 tool_use 假 ID,Response Integrity 检测输入注入。</p>
+      <p>Kiro 和 Amazon Q 是 Amazon 的 Claude 替身网关,响应没有 Claude thinking signature
+        (它们走的是 AWS Bedrock 的简化接口,不返回服务端签名)。
+        Veridrop 在 thinking_signature 检测上会直接判 0 分,fail 整体检测。</p>
     </div>
   </details>
 
   <details class="faq-item">
-    <summary>Veridrop 是怎么识别真假中转站的?</summary>
+    <summary>Veridrop 会记录我的 API key 吗?</summary>
     <div class="faq-body">
-      <p>我们向目标接口发送结构化探测请求,从 <strong>10 个维度</strong> 综合评分:</p>
-      <table class="faq-table">
-        <thead><tr><th>类别</th><th>检测项</th></tr></thead>
-        <tbody>
-          <tr><td rowspan="5">真伪辨别</td><td>身份一致性 (Identity)</td></tr>
-          <tr><td>行为签名验证 (Behavioral Signature)</td></tr>
-          <tr><td>思维签名验证 (Thinking Signature) ⭐</td></tr>
-          <tr><td>模型一致性 (Model Consistency)</td></tr>
-          <tr><td>知识准确度 (Knowledge)</td></tr>
-          <tr><td rowspan="2">能力完整</td><td>PDF 文档识别</td></tr>
-          <tr><td>结构化输出 (Tool Use)</td></tr>
-          <tr><td rowspan="3">协议合规</td><td>协议规范性 (Protocol)</td></tr>
-          <tr><td>响应完整性 (Integrity)</td></tr>
-          <tr><td>消息标识规范 (Message ID)</td></tr>
-        </tbody>
-      </table>
-      <p>不是只看单一字段,而是<strong>从多种技术特征交叉验证</strong>,任何一项严重偏离官方都会被记录在报告中。其中思维签名验证 (Thinking Signature) 利用 Claude 服务端返回的加密签名字段——这个字段是 Anthropic 用私钥签出来的,任何中转站都<strong>物理上无法伪造</strong>,是 10 项里唯一可以做加密级证明的指标。</p>
+      <p>不会。API key 只存在 job 内存对象里,job 跑完(成功或失败)立即清空,
+        不写报告 JSON、不写日志、不写磁盘。报告里 key 是脱敏形式(<code>sk-y7xU••••••0h</code>),
+        代码开源可验证。</p>
     </div>
   </details>
 
-  <details class="faq-item">
-    <summary>报告里的 TTFT、LATENCY、TOKENS/S 是什么意思?</summary>
-    <div class="faq-body">
-      <ul>
-        <li><strong>TTFT (Time to First Token)</strong>:首字节(实际是首 token)时间,从发出请求到收到第一个 <code>content_block_delta</code> 事件的耗时。Veridrop 取所有流式请求中的最小值——代表中转站在最简单的提示下的响应速度,排除模型思考开销,反映的是<strong>纯网络/调度延迟</strong>。低于 1 秒优秀,2 秒以上意味着上游可能在排队或路由绕远。</li>
-        <li><strong>LATENCY</strong>:整批检测的钟表时间,从 Runner 启动到所有 detector 完成。由于检测是并行执行,这个数 ≈ 最慢那个 detector 的耗时,而不是 13 个请求耗时之和。完整模式正常落在 20–40 秒。</li>
-        <li><strong>TOKENS/S</strong>:输出 tokens 数 ÷ LATENCY,粗略吞吐参考。</li>
-        <li><strong>INPUT TOKENS / OUTPUT TOKENS</strong>:本次检测累计的输入与输出 token 数,可与官方 baseline 对照——若 INPUT 显著偏高,说明中转站可能在请求里偷偷注入了 system prompt。</li>
-      </ul>
-    </div>
-  </details>
-
-  <details class="faq-item">
-    <summary>检测会不会消耗我的 API 余额?要花多少钱?</summary>
-    <div class="faq-body">
-      <p>会,但成本很低。检测过程中 Veridrop 会向你提交的 <code>base_url + api_key</code> 发送约 13 个 HTTP 请求(完整模式),消耗的是<strong>你那个中转站账户的余额</strong>,Veridrop 不收取任何技术费用。</p>
-      <p>参考成本(以官方 Anthropic 价格估算,中转站可能更便宜):</p>
-      <ul>
-        <li>Haiku 4.5 完整模式:约 <strong>$0.02</strong> </li>
-        <li>Sonnet 4.6 完整模式:约 <strong>$0.05</strong> </li>
-        <li>Opus 4.7 完整模式:约 <strong>$0.08</strong> </li>
-      </ul>
-      <p>所以建议先用 Haiku 4.5 + 完整模式做首测,几分钱就能拿到完整鉴定结果。</p>
-    </div>
-  </details>
-
-  <details class="faq-item">
-    <summary>支持检测哪些模型?</summary>
-    <div class="faq-body">
-      <p>目前支持 Claude 全系主流模型:</p>
-      <ul>
-        <li><code>claude-opus-4-7</code> — 最新旗舰,1M 上下文,adaptive thinking</li>
-        <li><code>claude-sonnet-4-6</code> — 主力推荐,1M 上下文,extended thinking</li>
-        <li><code>claude-haiku-4-5</code> — 性价比之选,200K 上下文</li>
-        <li><code>claude-opus-4-6</code> — 上一代旗舰</li>
-        <li><code>claude-sonnet-4-5</code> / <code>claude-opus-4-5</code> / <code>claude-opus-4-1</code> — 旧版兼容</li>
-      </ul>
-      <p>OpenAI 协议(GPT 中转)和 Gemini 协议暂不支持,在我们规划中。如果你想检测 GPT 类中转站的真伪,目前可以参考社区其他工具。</p>
-    </div>
-  </details>
-
-  <details class="faq-item">
-    <summary>有推荐的 Claude API 中转站吗?</summary>
-    <div class="faq-body">
-      <p>Veridrop 的定位是<strong>独立检测工具</strong>,不直接发布"中转站排行榜"或"推荐名单",原因是任何排名都会引发"恰饭"质疑,影响工具本身的可信度。</p>
-      <p>但我们确实跑过大量样本,目前在<strong>字段级 1:1 通过官方 baseline 比对</strong>的中转站非常少。建议你做选型时:</p>
-      <ol>
-        <li>找小额可充值的备选站点(20–50 元先试)</li>
-        <li>每家用 Veridrop 跑一次完整模式</li>
-        <li>对比同模型下的总分、TTFT、签名长度、token 一致性</li>
-        <li>挑 ≥85 分(优秀)的站再考虑续费</li>
-      </ol>
-      <p>避开任何在 thinking signature、PDF Recognition、Structured Output 上扣分严重的——这几项是中转站<strong>能力降级的典型标志</strong>。</p>
-    </div>
-  </details>
-
-  <details class="faq-item">
-    <summary>检测分数高的中转站,充值就绝对安全吗?</summary>
-    <div class="faq-body">
-      <p><strong>不是。</strong> 技术指标不等于信誉保证。Veridrop 的算法能识别中转站接口当前是否真诚、稳定,但<strong>无法预测站长的经营持久力</strong>。</p>
-      <p>第三方中转站受上游政策影响较大,行业内服务商变动频繁——上游突然封号、调价、停供,都会让原本检测全过的站点立即不可用。为了你的资金安全,请始终保持风险意识:</p>
-      <ul>
-        <li><strong>初次使用仅做最低限度充值</strong>(20–50 元)</li>
-        <li>使用 1–2 周后再小额续费,避免一次性大额囤积</li>
-        <li>定期(每周或每月)用 Veridrop 重测同一家中转站,看分数是否稳定</li>
-        <li>关注社群、TG 群、推特等渠道的实时反馈,出现跑路苗头立刻减少充值</li>
-      </ul>
-      <p>记住:<strong>没有任何检测工具能替代风险分散</strong>。即便是 100/100 的中转站,也建议同时保留 1–2 个备选,避免单点依赖。</p>
-    </div>
-  </details>
-
-  <details class="faq-item">
-    <summary>我的 API 密钥会不会被泄露或滥用?</summary>
-    <div class="faq-body">
-      <p>不会。Veridrop 的密钥处理流程:</p>
-      <ul>
-        <li>提交时通过 HTTPS 加密传输到 Veridrop 服务器</li>
-        <li>仅在本次检测的内存中保留,用完<strong>立即丢弃</strong></li>
-        <li>持久化的 JSON 报告中只保存<strong>掩码形式</strong>(如 <code>sk-ab••••••cd</code>),无法还原原始密钥</li>
-        <li>密钥<strong>不写入日志</strong>、<strong>不进数据库</strong>、<strong>不上传第三方</strong></li>
-        <li>检测过程中只对你提供的 <code>base_url</code> 发起请求,不会被用于其他用途</li>
-      </ul>
-      <p>但出于风险意识,仍建议:使用<strong>专门用于测试的 API key</strong>(余额少、可随时吊销),而不是你日常生产环境的主 key。</p>
-    </div>
-  </details>
-
-  <details class="faq-item">
-    <summary>能不能检测 OpenAI / GPT / Gemini 中转站?</summary>
-    <div class="faq-body">
-      <p>暂不支持。Veridrop 当前只针对 Anthropic Messages API 协议(<code>POST /v1/messages</code>)。OpenAI Responses/Chat Completions 协议、Google Gemini 协议都在规划中,但因为这两家没有像 Claude 的 thinking signature 那样的<strong>加密级反伪指纹</strong>,鉴定难度更大,需要换一套检测维度。</p>
-      <p>如果你的中转站只走 Anthropic 协议(包括 Claude Opus 4.7、Sonnet 4.6、Haiku 4.5 等),Veridrop 完全适用。</p>
-    </div>
-  </details>
-
-  <details class="faq-item">
-    <summary>检测失败 / 报错 / 超时怎么办?</summary>
-    <div class="faq-body">
-      <p>常见原因和处理:</p>
-      <ul>
-        <li><strong>"No available channel for model XXX"</strong>:中转站没开通该模型的路由。换一个模型试试,或联系站长开通。</li>
-        <li><strong>HTTP 401 / 403</strong>:API key 无效或没权限。检查 key 是否输入正确、是否过期。</li>
-        <li><strong>HTTP 429</strong>:被中转站限流。等几分钟再试,或换个时间段。</li>
-        <li><strong>超时</strong>:中转站延迟过高(>180 秒),通常是上游过载。可以先用快速模式 (quick) 测一下能不能通,再尝试完整模式。</li>
-        <li><strong>网络错误</strong>:<code>base_url</code> 拼写错了,或站点已下线。先用 curl 试试 <code>{base_url}/v1/messages</code> 是否可达。</li>
-      </ul>
-    </div>
-  </details>
-
+  <p class="faq-more">
+    更多 Claude 中转站问题 → <a href="/faq#claude">/faq#claude</a>
+    · 真伪识别 → <a href="/faq#authenticity">/faq#authenticity</a>
+    · 全部 <a href="/faq">常见问题</a>
+  </p>
 </section>
 
-<script src="/static/app.js" defer></script>
+{# app.js loaded globally by base.html #}
 {% endblock %}

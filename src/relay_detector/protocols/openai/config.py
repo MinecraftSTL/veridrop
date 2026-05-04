@@ -1,0 +1,54 @@
+"""OpenAI Chat Completions detector config."""
+
+from __future__ import annotations
+
+from ...core.models import Mode
+
+
+DETECTOR_WEIGHTS: dict[str, float] = {
+    "basic_request": 15.0,
+    "model_consistency": 15.0,
+    "function_calling": 15.0,
+    "structured_output": 15.0,
+    "protocol": 15.0,
+    "integrity": 15.0,
+    "token_billing": 10.0,
+}
+
+
+MODE_DETECTORS: dict[Mode, set[str]] = {
+    Mode.QUICK: {
+        "basic_request",
+        "model_consistency",
+        "protocol",
+    },
+    Mode.STANDARD: {
+        "basic_request",
+        "model_consistency",
+        "function_calling",
+        "structured_output",
+        "protocol",
+        "integrity",
+        "token_billing",
+    },
+    Mode.FULL: set(DETECTOR_WEIGHTS.keys()),
+}
+
+
+OPENAI_MODEL_CHOICES = [
+    "gpt-5.5",
+    "gpt-5.4",
+    "gpt-5.3-codex",
+    "gpt-5.4-nano",
+    "gpt-5.4-mini",
+]
+
+
+def models_match(request_model: str, response_model: str) -> bool:
+    if not request_model or not response_model:
+        return False
+    return (
+        request_model == response_model
+        or request_model.startswith(response_model)
+        or response_model.startswith(request_model)
+    )

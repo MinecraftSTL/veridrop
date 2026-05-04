@@ -18,14 +18,16 @@ from .client import AnthropicAPIError, AnthropicClient
 from .detectors import build_all
 from .models import (
     DetectionReport,
+    DetectionTier,
     ExecutionConfig,
     Mode,
     PerformanceMetrics,
+    Protocol,
     mask_api_key,
 )
 from .report import Report
 from .runner import Runner
-from .scorer import compute_total, summary_text, verdict_for
+from .scorer import compute_total, effective_verdict, fatal_run_error, summary_text
 
 app = typer.Typer(
     name="relay-detector",
@@ -245,9 +247,10 @@ async def _run_detect(
         runner = Runner(client, detectors, config)
         outcome = await runner.run(model)
 
-    total = compute_total(outcome.results)
-    verdict = verdict_for(total)
-    summary = summary_text(total, verdict)
+    run_error = fatal_run_error(outcome.results)
+    total = 0.0 if run_error else compute_total(outcome.results)
+    verdict = effective_verdict(total, outcome.results)
+    summary = run_error or summary_text(total, verdict)
 
     # Pull the model's self-reported identity from the IdentityDetector
     # so callers can read it from the JSON top-level without digging into
@@ -266,6 +269,13 @@ async def _run_detect(
             detected_brands = [b for b in brands if isinstance(b, str)]
 
     report = DetectionReport(
+        protocol=Protocol.ANTHROPIC,
+        tier=DetectionTier.CRYPTOGRAPHIC,
+        tier_title="加密级验证",
+        tier_message=(
+            "Claude thinking signature 来自 Anthropic 服务端签名。"
+            "通过该项时,它是当前检测集中最高可信度的真伪信号。"
+        ),
         base_url=base_url,
         api_key_masked=masked,
         target_model=model,
@@ -276,6 +286,7 @@ async def _run_detect(
         results=outcome.results,
         performance=outcome.performance,
         summary=summary,
+        run_error=run_error,
         self_reported_identity=self_id,
         detected_non_anthropic_brands=detected_brands,
     )
@@ -574,7 +585,7 @@ def openai_baseline(
         help="OpenAI API key. Prefer OPENAI_API_KEY or .env instead of typing it here.",
     ),
     model: str = typer.Option(
-        "gpt-4o-mini",
+        "gpt-5.5",
         "--model",
         envvar="OPENAI_MODEL",
         help="Model ID to probe. Use the exact model you want as the official baseline.",

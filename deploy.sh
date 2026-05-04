@@ -74,6 +74,7 @@ EXCLUDES=(
   --exclude='build/'
   --exclude='dist/'
   --exclude='report*.json'
+  --exclude='web_data/'          # persistent web job reports on remote
   --exclude='.cache/'
   --exclude='.DS_Store'
   # .env is host-specific: local points at one relay for dev, remote points

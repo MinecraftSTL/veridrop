@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}常见问题 · AI API 中转站检测 | Veridrop{% endblock %}
+{% block description %}Veridrop 关于 AI API 中转站检测的 {{ total_count }} 个常见问题:Claude 真伪验证、OpenAI 后端伪装识别、Gemini 中转站协议合规、thinking signature 加密级检测原理。{% endblock %}
+{% block og_title %}AI API 中转站检测常见问题 · Veridrop{% endblock %}
+{% block og_description %}{{ total_count }} 个 Q&A 覆盖 Claude / OpenAI / Gemini 中转站真伪检测、协议合规、隐私安全。{% endblock %}
+
+{% block head_extra %}
+<script type="application/ld+json">
+{{ jsonld | safe }}
+</script>
+{% endblock %}
+
+{% block content %}
+
+<section class="faq-hero">
+  <h1>常见问题</h1>
+  <p class="faq-hero-sub">
+    Veridrop 是 AI API 中转站检测工具,通过 Claude thinking signature 加密级验证 + 协议字段
+    + 用量指纹,识别中转站是否真实透传 Claude / OpenAI / Gemini 模型。本页汇总 <strong>{{ total_count }} 个</strong>
+    关于中转站、真伪检测、工具使用、数据安全的常见问题。
+  </p>
+</section>
+
+<div class="faq-layout">
+  <!-- Sticky TOC on desktop; collapses to a header card on mobile -->
+  <aside class="faq-toc">
+    <div class="faq-toc-title">目录</div>
+    <ul class="faq-toc-list">
+      {% for cat in categories %}
+      <li><a href="#{{ cat.id }}">{{ cat.title }}</a> <span class="faq-toc-count">{{ cat.entries|length }}</span></li>
+      {% endfor %}
+    </ul>
+  </aside>
+
+  <main class="faq-main">
+    {% for cat in categories %}
+    <section class="faq-category" id="{{ cat.id }}">
+      <h2>{{ cat.title }}</h2>
+      <p class="faq-category-intro">{{ cat.intro }}</p>
+
+      <div class="faq-entries">
+        {% for entry in cat.entries %}
+        <details class="faq-entry" id="{{ cat.id }}-{{ entry.id }}">
+          <summary class="faq-q">
+            {{ entry.q }}
+            <a class="faq-permalink" href="#{{ cat.id }}-{{ entry.id }}" aria-label="复制链接到该问题">#</a>
+          </summary>
+          {# entry.a may contain limited inline HTML (<strong>, <code> etc.)
+             from faq_data.py — that file is fully under our control, no user
+             input ever reaches this template, so |safe is safe. #}
+          <div class="faq-a">{{ entry.a | safe }}</div>
+        </details>
+        {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+
+    <section class="faq-no-answer">
+      <h2>没找到答案?</h2>
+      <p>
+        欢迎在
+        <a href="https://github.com/" target="_blank" rel="noopener">GitHub</a>
+        提 issue,或者直接<a href="/claude">跑一次检测</a>看实际结果 — Veridrop
+        的报告 details 里包含具体的扣分原因,通常自带答案。
+      </p>
+    </section>
+  </main>
+</div>
+
+<script>
+// Auto-expand the Q whose anchor is in the URL on load (so deep-links from
+// product pages land on the answer with it already open).
+(function () {
+  function openTarget() {
+    const hash = location.hash.slice(1);
+    if (!hash) return;
+    const el = document.getElementById(hash);
+    if (el && el.tagName === 'DETAILS') {
+      el.open = true;
+      // Defer so layout settles before scrolling
+      setTimeout(() => el.scrollIntoView({behavior: 'smooth', block: 'start'}), 50);
+    }
+  }
+  openTarget();
+  window.addEventListener('hashchange', openTarget);
+})();
+</script>
+{% endblock %}

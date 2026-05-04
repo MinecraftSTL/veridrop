@@ -14,6 +14,9 @@ from relay_detector.detectors.knowledge import (
     _parse_numbered_answers,
 )
 from relay_detector.detectors.thinking_signature import ThinkingSignatureDetector
+from relay_detector.detectors.token_usage import TokenUsageDetector
+from relay_detector.protocols.anthropic.detectors.token_usage import _delta_range
+from relay_detector.models import StreamEvent
 
 
 # --- config helpers --------------------------------------------------------
@@ -273,3 +276,72 @@ def test_structured_output_tool_def_is_well_formed():
     # Match official caller enum from DESIGN §3.7
     assert "direct" in VALID_CALLERS
     assert all(c.startswith(("direct", "code_execution_")) for c in VALID_CALLERS)
+
+
+# --- TokenUsageDetector ---------------------------------------------------
+
+
+class _TokenUsageFakeClient:
+    async def messages_create(self, **body):
+        prompt = body["messages"][0]["content"]
+        is_long = "Reference text:" in prompt
+        usage = {
+            "input_tokens": 92 if is_long else 12,
+            "output_tokens": 3,
+        }
+        return (
+            body,
+            {
+                "content": [{"type": "text", "text": "ok"}],
+                "usage": usage,
+            },
+            {},
+            10,
+        )
+
+    async def messages_stream(self, **body):
+        yield StreamEvent(
+            event="message_start",
+            data={"message": {"usage": {"input_tokens": 12}}},
+        ), 1
+        yield StreamEvent(event="content_block_delta", data={"delta": {"text": "ok"}}), 2
+        yield StreamEvent(
+            event="message_delta",
+            data={"usage": {"output_tokens": 3}, "delta": {"stop_reason": "end_turn"}},
+        ), 3
+
+    async def count_tokens(self, **body):
+        return body, {"input_tokens": 12}, {}, 5
+
+
+class _InflatedTokenUsageFakeClient(_TokenUsageFakeClient):
+    async def messages_create(self, **body):
+        req, resp, headers, latency = await super().messages_create(**body)
+        resp["usage"] = dict(resp["usage"])
+        resp["usage"]["input_tokens"] *= 10
+        resp["usage"]["output_tokens"] = 120
+        return req, resp, headers, latency
+
+
+async def test_token_usage_detector_passes_plausible_usage():
+    r = await TokenUsageDetector().run(_TokenUsageFakeClient(), "claude-haiku-4-5")
+    assert r.status == "pass"
+    assert r.score == 100.0
+    assert r.details["sub_checks"]["input_token_delta"]["pass"] is True
+    assert r.details["sub_checks"]["count_tokens"]["pass"] is True
+
+
+async def test_token_usage_detector_flags_inflated_usage():
+    r = await TokenUsageDetector().run(
+        _InflatedTokenUsageFakeClient(), "claude-haiku-4-5"
+    )
+    assert r.status == "fail"
+    assert r.score < 80.0
+    assert r.details["sub_checks"]["output_tokens"]["pass"] is False
+    assert r.details["sub_checks"]["count_tokens"]["pass"] is False
+
+
+def test_token_usage_detector_uses_wider_delta_for_opus_47_tokenizer():
+    assert _delta_range("claude-sonnet-4-6") == (45, 140)
+    lo, hi = _delta_range("claude-opus-4-7")
+    assert lo <= 166 <= hi

@@ -210,3 +210,69 @@ def test_chat_completion_template_flags_usage_total_mismatch():
     result = validate_chat_completion(payload)
     assert result.score == 95.0
     assert any(issue.code == "usage_total_mismatch" for issue in result.issues)
+
+
+def test_chat_completion_template_flags_anthropic_usage_adapter_fields():
+    """Anthropic-backend impersonation must be flagged as critical (not just
+    major), so that ProtocolDetector fails the relay even when every required
+    OpenAI field is present. This is the smoking-gun case: real seen in the
+    wild on 2026-05 from at least one multi-protocol relay returning gpt-4o-mini
+    responses with Claude usage residue."""
+    payload = _chat_payload(
+        usage={
+            "prompt_tokens": 12,
+            "completion_tokens": 1,
+            "total_tokens": 13,
+            "usage_source": "anthropic",
+            "input_tokens": 12,
+            "output_tokens": 0,
+            "claude_cache_creation_5_m_tokens": 0,
+        }
+    )
+
+    result = validate_chat_completion(payload, request_model="gpt-4o")
+
+    codes = {issue.code for issue in result.issues}
+    assert "usage_contains_claude_fields" in codes
+    assert "usage_source_non_openai" in codes
+    assert "usage_mixed_token_fields" in codes
+    # 2 critical (-35 each) + 1 minor (-5) = -75
+    assert result.score == 25.0
+    assert result.passed is False
+    # Critical severity is what flips ProtocolDetector to fail.
+    assert any(
+        i.severity == "critical" and i.code == "usage_contains_claude_fields"
+        for i in result.issues
+    )
+    assert any(
+        i.severity == "critical" and i.code == "usage_source_non_openai"
+        for i in result.issues
+    )
+
+
+def test_chat_completion_template_flags_gemini_usage_adapter_fields():
+    """Same pattern for Gemini-backend impersonation: gemini_* or
+    promptTokenCount-style fields in an OpenAI usage object means the relay is
+    repackaging a Gemini response."""
+    payload = _chat_payload(
+        usage={
+            "prompt_tokens": 6,
+            "completion_tokens": 4,
+            "total_tokens": 10,
+            "usage_source": "google",
+            "cached_content_token_count": 0,
+            "thoughts_token_count": 12,
+        }
+    )
+
+    result = validate_chat_completion(payload, request_model="gpt-4o")
+
+    codes = {issue.code for issue in result.issues}
+    assert "usage_contains_gemini_fields" in codes
+    assert "usage_source_non_openai" in codes
+    assert result.passed is False
+    assert all(
+        i.severity == "critical"
+        for i in result.issues
+        if i.code in ("usage_contains_gemini_fields", "usage_source_non_openai")
+    )

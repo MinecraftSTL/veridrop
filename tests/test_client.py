@@ -10,11 +10,19 @@ from relay_detector.client import (
     AnthropicAPIError,
     AnthropicClient,
     ThrottledClient,
+    _normalize_base_url,
     _parse_sse,
 )
 
 
 BASE_URL = "https://api.example.com"
+
+
+def test_normalize_base_url_accepts_trailing_v1():
+    assert _normalize_base_url("https://api.example.com/v1") == "https://api.example.com"
+    assert _normalize_base_url("https://api.example.com/v1/") == "https://api.example.com"
+    assert _normalize_base_url("https://api.example.com/api/v1") == "https://api.example.com/api"
+    assert _normalize_base_url("https://api.example.com") == "https://api.example.com"
 
 
 @pytest.mark.asyncio
@@ -104,6 +112,34 @@ async def test_messages_create_returns_dict_unchanged():
     assert resp["id"] == "msg_abc123"
     assert resp["usage"]["input_tokens"] == 10
     assert latency >= 0
+
+
+@pytest.mark.asyncio
+async def test_count_tokens_strips_generation_only_fields():
+    captured: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        import json as _json
+        captured.append(_json.loads(request.content))
+        return httpx.Response(200, json={"input_tokens": 12})
+
+    async with respx.mock(base_url=BASE_URL) as router:
+        router.post("/v1/messages/count_tokens").mock(side_effect=handler)
+        async with AnthropicClient(BASE_URL, "sk-test") as client:
+            _req, resp, _headers, _latency = await client.count_tokens(
+                model="claude-haiku-4-5",
+                max_tokens=16,
+                temperature=0,
+                stream=True,
+                messages=[{"role": "user", "content": "hi"}],
+            )
+
+    assert resp == {"input_tokens": 12}
+    sent = captured[0]
+    assert "max_tokens" not in sent
+    assert "temperature" not in sent
+    assert "stream" not in sent
+    assert sent["messages"] == [{"role": "user", "content": "hi"}]
 
 
 @pytest.mark.asyncio

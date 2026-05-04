@@ -32,12 +32,13 @@ web = [
 
 [project.scripts]
 relay-detector = "relay_detector.cli:app"
+veridrop = "relay_detector.cli:app"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-relay_detector = ["data/*.json", "data/*.pdf"]
+"relay_detector.protocols.anthropic" = ["data/*.json", "data/*.pdf"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

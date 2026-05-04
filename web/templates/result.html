@@ -1,21 +1,36 @@
 {% extends "base.html" %}
 
-{% block title %}检测结果 · Veridrop{% endblock %}
-{% block description %}Claude API 中转站检测报告:{{ report.target_model }} 总分 {{ report.total_score }}/100。10 项加密级与协议级穿透,支持下载 JPG 报告。{% endblock %}
+{# SEO meta — server-computed in server.py:_seo_meta_for_report based on
+   report's domain, score, verdict, pass/fail counts. Each /r/{id} becomes
+   its own indexable landing page for "what does relay X look like" queries.
+   Falls back to generic strings if seo_* values missing (legacy reports). #}
+{% block title %}{{ seo_title or '检测结果 · Veridrop' }}{% endblock %}
+{% block description %}{{ seo_description or 'AI API 中转站检测报告' }}{% endblock %}
+{% block og_title %}{{ seo_title or '中转站检测报告 · Veridrop' }}{% endblock %}
+{% block og_description %}{{ seo_og_description or seo_description or 'AI API 中转站检测报告' }}{% endblock %}
 
 {% block content %}
 {% set perf = report.performance or {} %}
 {% set usage = perf.usage or {} %}
 {% set score = report.total_score or 0 %}
 {% set verdict = report.verdict or 'failed' %}
-{% if score >= 95 %}
+{% set protocol = report.protocol or 'anthropic' %}
+{# verdict drives both caption and color so any critical-issue downgrade
+   applied in scorer.effective_verdict() is honored. The classification was
+   previously score-driven, which let a 75% relay with detected impersonation
+   render as a green circle and "基本通过" caption — visually contradicting
+   the red critical findings below. #}
+{% if verdict == 'passed' and score >= 95 and protocol == 'anthropic' %}
   {% set caption = '完全一致' %}{% set verdict_class = 'ok' %}
-{% elif score >= 85 %}
-  {% set caption = '优秀' %}{% set verdict_class = 'ok' %}
+{% elif verdict == 'passed' and score >= 85 %}
+  {% set caption = '协议表现良好' if protocol in ['openai', 'gemini'] else '优秀' %}
+  {% set verdict_class = 'ok' %}
 {% elif verdict == 'passed' %}
-  {% set caption = '通过' %}{% set verdict_class = 'ok-dim' %}
+  {% set caption = '基本通过' if protocol in ['openai', 'gemini'] else '通过' %}
+  {% set verdict_class = 'ok-dim' %}
 {% elif verdict == 'marginal' %}
-  {% set caption = '基本合格' %}{% set verdict_class = 'warn' %}
+  {% set caption = '存在风险' if protocol in ['openai', 'gemini'] else '基本合格' %}
+  {% set verdict_class = 'warn' %}
 {% else %}
   {% set caption = '未达标' %}{% set verdict_class = 'fail' %}
 {% endif %}
@@ -36,11 +51,25 @@
   </div>
 </section>
 
+{% if report.run_error %}
+<section class="card alert-card">
+  <strong>检测无效:</strong>
+  {{ report.run_error }}
+</section>
+{% endif %}
+
+{% if report.tier_title or report.tier_message %}
+<section class="card alert-card">
+  <strong>{{ report.tier_title or report.tier }}:</strong>
+  {{ report.tier_message }}
+</section>
+{% endif %}
+
 <section class="result-card">
   <div class="result-left">
     <div class="score-ring score-{{ verdict_class }}">
       <div class="score-inner">
-        <div class="score-num">{{ '{:g}'.format(score) }}%</div>
+        <div class="score-num">{{ '%.0f' | format(score) }}%</div>
         <div class="score-caption">{{ caption }}</div>
       </div>
     </div>
@@ -69,6 +98,18 @@
     </ul>
   </div>
 </section>
+
+{% if report_notes %}
+<section class="card notes-card">
+  <h2>这份结果怎么理解?</h2>
+  {% for note in report_notes %}
+  <div class="note-item">
+    <strong>{{ note.title }}</strong>
+    <p>{{ note.body }}</p>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
 
 <section class="metrics-row metrics-row-5">
   <div class="metric{% if perf.ttft_ms and perf.ttft_ms > 2000 %} metric-warn{% endif %}">
@@ -103,7 +144,7 @@
   </div>
 </section>
 
-{% if report.detected_non_anthropic_brands %}
+{% if protocol == 'anthropic' and report.detected_non_anthropic_brands %}
 <section class="card alert-card">
   <strong>⚠ 检测到非 Anthropic 后端品牌:</strong>
   {{ report.detected_non_anthropic_brands | join(', ') }}
@@ -112,7 +153,44 @@
 
 <section class="card details-card">
   <details>
-    <summary>10 项检测各自检查什么?</summary>
+    {% if protocol == 'openai' %}
+    <summary>OpenAI 检测项各自检查什么?</summary>
+    <dl class="def-list">
+      <dt>基础请求 (Basic Request)</dt>
+      <dd>发送最小 Chat Completions 请求,确认接口可用且能提取 assistant 文本。</dd>
+      <dt>模型一致性 (Model Consistency)</dt>
+      <dd>验证 <code>response.model</code> 与请求模型匹配,并检查低温多次调用的输出 token 稳定性。</dd>
+      <dt>函数调用 (Function Calling)</dt>
+      <dd>强制 tool_choice,验证 <code>call_</code> ID、<code>type=function</code>、函数名和 arguments JSON。</dd>
+      <dt>结构化输出 (Structured Output)</dt>
+      <dd>使用 <code>response_format=json_schema</code>,检查返回内容能否按 schema 解析。</dd>
+      <dt>协议规范性 (Protocol)</dt>
+      <dd>被动检查 <code>chatcmpl-</code> ID、<code>chat.completion</code>、choices、finish_reason、usage 等官方字段。</dd>
+      <dt>流式一致性 (Integrity)</dt>
+      <dd>比较同一 prompt 的 stream 与 non-stream 文本、finish_reason 和 usage 是否一致。</dd>
+      <dt>Token 计费</dt>
+      <dd>检查中转站返回的输入/输出 Token 数是否自洽,并和同一次检测里的流式/非流式结果、本地可预期的变化进行对比。</dd>
+    </dl>
+    {% elif protocol == 'gemini' %}
+    <summary>Gemini 检测项各自检查什么?</summary>
+    <dl class="def-list">
+      <dt>基础请求</dt>
+      <dd>发送最小 <code>generateContent</code> 请求,确认接口可用且能提取 Gemini 文本响应。</dd>
+      <dt>模型响应形状</dt>
+      <dd>检查 <code>modelVersion</code>、<code>responseId</code>、<code>finishReason</code>、candidate 和 safety 字段是否完整。</dd>
+      <dt>函数调用</dt>
+      <dd>强制 Gemini 返回 <code>functionCall</code>,检查函数名和 args 是否是结构化对象。</dd>
+      <dt>结构化输出</dt>
+      <dd>使用 <code>responseMimeType=application/json</code> 和 <code>responseSchema</code>,检查返回内容能否按 schema 解析。</dd>
+      <dt>协议规范性</dt>
+      <dd>被动检查 <code>candidates</code>、<code>content.parts</code>、<code>safetyRatings</code>、<code>usageMetadata</code> 等 Gemini 原生字段。</dd>
+      <dt>流式一致性</dt>
+      <dd>比较同一 prompt 的 <code>generateContent</code> 与 <code>streamGenerateContent</code> 文本、结束原因和用量字段是否一致。</dd>
+      <dt>Token 用量</dt>
+      <dd>检查 <code>usageMetadata</code> 是否存在、Token 统计是否自洽,以及长短文本带来的 Token 增量是否合理。</dd>
+    </dl>
+    {% else %}
+    <summary>11 项检测各自检查什么?</summary>
     <dl class="def-list">
       <dt>身份一致性 (Identity)</dt>
       <dd>询问模型自报身份,响应必须包含 "Claude" 与 "Anthropic",且不能自称是其他品牌(如 Kiro、AWS Q 等)。</dd>
@@ -132,9 +210,12 @@
       <dd>SSE 事件序列、content block 类型必须符合 Anthropic 官方规范(被动检测,不发额外请求)。</dd>
       <dt>响应完整性 (Integrity)</dt>
       <dd>同一 prompt 流式与非流式调用必须返回一致的文本、<code>input_tokens</code>、<code>stop_reason</code>。</dd>
+      <dt>Token 用量</dt>
+      <dd>检查 Claude Messages 的 <code>usage.input_tokens/output_tokens</code> 是否存在、长短 prompt 增量是否合理、短输出是否没有超报,并用 stream 与 <code>count_tokens</code> 做交叉验证。</dd>
       <dt>消息标识规范 (Message ID)</dt>
       <dd>消息 <code>id</code> 必须以 <code>msg_</code> 开头、tool 块以 <code>toolu_</code> 开头。UUID 或硬编码 <code>tool_1</code> 是典型造假特征。</dd>
     </dl>
+    {% endif %}
   </details>
 </section>
 

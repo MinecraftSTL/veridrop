@@ -50,6 +50,11 @@ class Report:
             if len(snippet) > 220:
                 snippet = snippet[:220] + "…"
             header += f"\n\n[bold]模型自报[/bold]: [dim]{snippet}[/dim]"
+        if report.tier_title or report.tier_message:
+            header += (
+                f"\n\n[bold]{report.tier_title or report.tier.value}[/bold]: "
+                f"[dim]{report.tier_message}[/dim]"
+            )
         self.console.print(Panel(header, title="中转站检测报告", expand=False))
 
         # Detector results

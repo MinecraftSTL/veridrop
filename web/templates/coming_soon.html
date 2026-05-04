@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}{{ name }} 中转站检测 · 即将上线 | Veridrop{% endblock %}
+{% block description %}{{ name }} 中转站检测正在准备中。留下邮箱,上线后第一时间通知你。{% endblock %}
+{% block og_title %}{{ name }} 中转站检测 · Veridrop{% endblock %}
+{% block og_description %}{{ tier }} · {{ body }}{% endblock %}
+
+{% block content %}
+<section class="coming-head">
+  <div>
+    <p class="protocol-kicker">{{ status }}</p>
+    <h1>{{ headline }}</h1>
+    <p class="muted">{{ body }}</p>
+  </div>
+  <span class="tier-badge {% if protocol == 'openai' %}tier-behavioral{% else %}tier-protocol{% endif %}">
+    {{ tier }}
+  </span>
+</section>
+
+<section class="card coming-card">
+  <p class="coming-notice">{{ notice }}</p>
+  <form class="wishlist-form" id="wishlist-form">
+    <input type="hidden" name="protocol" value="{{ protocol }}" />
+    <div class="field">
+      <label for="email">上线通知邮箱</label>
+      <input type="email" id="email" name="email" required placeholder="you@example.com" />
+      <p class="hint">邮箱仅用于 {{ name }} 检测上线通知,不与第三方共享,每封通知邮件包含退订方式。</p>
+    </div>
+    <button class="btn btn-primary" id="wishlist-btn" type="submit">通知我</button>
+    <p class="form-error" id="wishlist-error" hidden></p>
+    <p class="form-success" id="wishlist-success" hidden>已记录,上线后会通知你。</p>
+  </form>
+</section>
+
+<section class="hub-note">
+  <h2>先检测 Claude</h2>
+  <p>Claude 独立检测已上线,可直接提交中转站 base_url 和 API key 生成报告。</p>
+  <a class="btn btn-ghost" href="/claude">前往 Claude 检测</a>
+</section>
+
+<script>
+(function () {
+  const form = document.getElementById('wishlist-form');
+  const btn = document.getElementById('wishlist-btn');
+  const err = document.getElementById('wishlist-error');
+  const ok = document.getElementById('wishlist-success');
+  if (!form) return;
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    err.hidden = true;
+    ok.hidden = true;
+    btn.disabled = true;
+    const fd = new FormData(form);
+    try {
+      const r = await fetch('/api/wishlist', {method: 'POST', body: fd});
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({detail: '提交失败'}));
+        throw new Error(j.detail || '提交失败');
+      }
+      form.reset();
+      ok.hidden = false;
+    } catch (e) {
+      err.textContent = e.message || '提交失败';
+      err.hidden = false;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+})();
+</script>
+{% endblock %}
