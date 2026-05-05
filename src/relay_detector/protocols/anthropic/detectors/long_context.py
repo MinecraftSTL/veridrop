@@ -196,7 +196,11 @@ class LongContextDetector(ActiveDetector):
         seed: str,
         ctx_limit: int,
     ) -> dict:
-        QUESTION_BUFFER = 1500
+        # Reserved tokens for: question text (~250) + Anthropic system
+        # overhead (~2000) + safety margin against tokenizer drift (~2750).
+        # Live measured 2026-05-05: 200k tier with buffer=1500 still
+        # overshot by 1.5k tokens, so bumped to 5000 for guaranteed safety.
+        QUESTION_BUFFER = 5000
         tier_seed = f"{seed}:{target_tokens}"
         needles = make_needles(tier_seed)
         haystack_target = min(

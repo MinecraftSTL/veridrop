@@ -41,16 +41,19 @@ from dataclasses import dataclass
 #                    on 200k tier with HTTP 400 "prompt too long")
 #   Gemini 5.5 ← unmeasured, conservative middle estimate
 # Note Claude's chars/token varies with content length:
-#   small (32k):  ~5.22 chars/tok
+#   small (32k):  ~5.22 chars/tok (test data)
 #   medium (100k): ~5.22 chars/tok
-#   large (200k clamped): ~5.93 chars/tok
-# Picking 5.5 lands the small/medium tiers slightly above target (no
-# coverage loss) and the large tier ~7% under target (mild coverage loss),
-# but crucially never overshoots ctx_limit on a 200k model.
+#   large (200k):  ~5.40-5.94 chars/tok (varies — denser BPE tokens at scale)
+#
+# 2026-05-05 second live test:
+#   chars/tok=5.5 + buffer=1500 → 200k probe sent 201,534 tokens (still
+#   over ctx_limit). Diagnosis: under-budgeted Anthropic's ~2000 system
+#   overhead + ~250 question tokens. Fix combines lower chars/tok with
+#   bigger buffer so even pessimistic scenarios land safely under limit.
 _CHARS_PER_TOKEN_BY_PROTOCOL = {
     "openai":    6.0,
-    "anthropic": 5.5,
-    "gemini":    5.5,
+    "anthropic": 5.3,   # was 5.5 — too high, overshooting at 200k tier
+    "gemini":    5.5,   # untested, conservative
 }
 _CHARS_PER_TOKEN_DEFAULT = 6.0  # fallback if protocol unknown
 
