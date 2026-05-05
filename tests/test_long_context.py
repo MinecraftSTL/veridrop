@@ -271,6 +271,20 @@ def _build_resp(text: str, prompt_tokens: int = 1000) -> dict:
     }
 
 
+@pytest.fixture(autouse=True)
+def _mock_long_context_sleep(monkeypatch):
+    """Replace the 75s TPM-reset sleep in the detector with a no-op so
+    tests that exercise rate_limited paths don't actually wait minutes.
+    Individual tests that need to assert the sleep duration override
+    this with their own monkeypatch on the same target."""
+    from relay_detector.protocols.openai.detectors import long_context as _lc_oa
+
+    async def _no_sleep(_s):
+        pass
+
+    monkeypatch.setattr(_lc_oa.asyncio, "sleep", _no_sleep)
+
+
 @pytest.mark.asyncio
 async def test_long_context_skips_when_not_opted_in():
     det = LongContextDetector()
@@ -582,6 +596,94 @@ async def test_long_context_429_treated_as_rate_limited_not_truncation():
     # Score reflects only probed tiers (just the 32k pass)
     assert result.score == 100.0
     assert "TPM" in result.details["summary"]
+
+
+@pytest.mark.asyncio
+async def test_long_context_429_retried_after_tpm_window_reset(monkeypatch):
+    """When a tier hits 429/TPM, detector waits ~75s for the sliding
+    window to reset and retries once. This unblocks legit big probes
+    (e.g. 995k on a 1M TPM tier where the prior 524k hasn't aged out
+    yet). Mock asyncio.sleep so the test doesn't actually wait."""
+    sleeps_recorded: list[float] = []
+
+    async def fake_sleep(s):
+        sleeps_recorded.append(s)
+
+    # Patch asyncio.sleep on the module object that long_context imported,
+    # so the detector's `asyncio.sleep(75)` call hits our fake (string-path
+    # monkeypatch doesn't traverse nested module attrs reliably).
+    from relay_detector.protocols.openai.detectors import long_context as _lc_oa
+    monkeypatch.setattr(_lc_oa.asyncio, "sleep", fake_sleep)
+
+    det = LongContextDetector()
+    det.config = ExecutionConfig.for_mode(
+        Mode.FULL, include_long_context=True,
+    )
+    client = _MockClient()
+
+    # First call to a tier: 429. Subsequent calls (after retry): success.
+    call_state = {"tier_first_call_seen": set()}
+
+    async def smart(**kwargs):
+        prompt = kwargs["messages"][0]["content"]
+        # Use prompt length as a proxy for which tier we're on
+        size_bucket = len(prompt) // 100_000
+        first_call = size_bucket not in call_state["tier_first_call_seen"]
+        if first_call and size_bucket > 0:
+            # Big tiers hit TPM on first attempt only
+            call_state["tier_first_call_seen"].add(size_bucket)
+            raise RuntimeError(
+                "HTTP 429: tokens per min (TPM): Limit 1000000"
+            )
+        ids = ANSWER_RE.findall(prompt.upper())
+        return ({}, _build_resp("\n".join(ids[:3])), {}, 0)
+
+    client.chat_completions_create = smart
+    result = await det.run(client, "gpt-4.1-mini")  # 1M model
+
+    # All three tiers should ultimately succeed via retry
+    tiers = result.details["tiers_tested"]
+    assert all(t["status"] == "pass" for t in tiers if t["status"] != "skip")
+    assert result.status == "pass"
+    # Verify retry path was taken: at least one ~75s sleep recorded
+    assert any(70 <= s <= 80 for s in sleeps_recorded), (
+        f"expected ~75s TPM-reset sleep, got {sleeps_recorded}"
+    )
+    # Verify retry metadata recorded on the tiers that needed it
+    retried_tiers = [t for t in tiers if t.get("tpm_retry_attempted")]
+    assert len(retried_tiers) >= 1
+
+
+@pytest.mark.asyncio
+async def test_long_context_429_persists_after_retry_marks_rate_limited(monkeypatch):
+    """If a tier is rate-limited on BOTH initial attempt AND retry, give up
+    and mark rate_limited (don't loop forever). This is the case where the
+    user's TPM tier is genuinely too low to fit the probe size."""
+    async def fake_sleep(s):
+        pass
+
+    monkeypatch.setattr(
+        "relay_detector.protocols.openai.detectors.long_context.asyncio.sleep",
+        fake_sleep,
+    )
+
+    det = LongContextDetector()
+    det.config = ExecutionConfig.for_mode(
+        Mode.FULL, include_long_context=True,
+    )
+    client = _MockClient()
+
+    async def always_429(**kwargs):
+        raise RuntimeError("HTTP 429: tokens per min (TPM): Limit 100000")
+
+    client.chat_completions_create = always_429
+    result = await det.run(client, "gpt-4.1-mini")
+    # All probed tiers rate-limited → overall skip
+    assert result.status == "skip"
+    tiers = result.details["tiers_tested"]
+    # First tier exists, was retried, still rate-limited
+    assert tiers[0]["status"] == "rate_limited"
+    assert tiers[0].get("tpm_retry_attempted") is True
 
 
 @pytest.mark.asyncio

@@ -277,7 +277,7 @@ def detect(
     # Long-context probes need much more wall-clock budget than the
     # regular per-mode default. See web/jobs.py for the same logic.
     if include_long_context_extreme:
-        config.overall_timeout_s = max(config.overall_timeout_s, 600.0)
+        config.overall_timeout_s = max(config.overall_timeout_s, 900.0)
     elif include_long_context:
         config.overall_timeout_s = max(config.overall_timeout_s, 300.0)
 

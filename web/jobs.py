@@ -190,11 +190,13 @@ async def _run(
             cfg.include_long_context_extreme = include_long_context_extreme
             # Long-context probes blow past the regular per-mode wall-clock
             # budget (60–180s). 1M-token requests alone take 2–4 minutes
-            # upstream; without this bump asyncio.wait_for kills the runner
-            # mid-detector and the user gets a misleading "fail" instead of
-            # a real result.
+            # upstream; the extreme path may also sleep 75s per tier waiting
+            # for an OpenAI/Anthropic TPM window to reset before retrying
+            # rate-limited probes (see _probe_tier_with_tpm_retry).
+            # Without this bump asyncio.wait_for kills the runner
+            # mid-detector and the user gets a misleading "fail" instead.
             if include_long_context_extreme:
-                cfg.overall_timeout_s = max(cfg.overall_timeout_s, 600.0)
+                cfg.overall_timeout_s = max(cfg.overall_timeout_s, 900.0)
             elif include_long_context:
                 cfg.overall_timeout_s = max(cfg.overall_timeout_s, 300.0)
             if protocol == "openai":

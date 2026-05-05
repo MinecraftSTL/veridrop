@@ -19,6 +19,7 @@ Opt-in (config.include_long_context). Default: skipped.
 
 from __future__ import annotations
 
+import asyncio
 import time
 
 from ....core.long_context import (
@@ -127,15 +128,16 @@ class LongContextDetector(ActiveDetector):
                 })
                 continue
 
-            tier_result = await self._probe_tier(
+            tier_result = await self._probe_tier_with_tpm_retry(
                 client, model, target_tokens, seed, ctx_limit
             )
             tier_results.append(tier_result)
             total_cost_usd += tier_result["estimated_cost_usd"]
             reached_tier = target_tokens
-            # Stop on rate_limited too — TPM windows reset on the order
-            # of minutes, so a synchronous retry of the next tier within
-            # the same detection run will hit the same wall.
+            # Stop on rate_limited only after the TPM retry already
+            # tried — at that point we've waited the full sliding-window
+            # reset and still hit the wall, meaning user's tier quota
+            # genuinely can't fit this probe size.
             if tier_result["status"] == "rate_limited":
                 break
             # Stop on fail OR partial — partial is treated as fail in
@@ -176,6 +178,45 @@ class LongContextDetector(ActiveDetector):
                 "opt_in": True,
             },
         )
+
+    async def _probe_tier_with_tpm_retry(
+        self,
+        client,
+        model: str,
+        target_tokens: int,
+        seed: str,
+        ctx_limit: int,
+    ) -> dict:
+        """Run a tier; on rate_limited, sleep ~75s and retry once.
+
+        ThrottledClient's built-in retry caps Retry-After at MAX_BACKOFF_S
+        = 30s (fine for transient 429s, too short for OpenAI's 60s sliding
+        TPM window). For long-context probes a single 524k probe leaves the
+        next tier blocked for nearly a full minute — sleeping the full
+        window plus a 15s safety margin is what unblocks 1M-tier tests.
+
+        We only retry rate_limited results (truncation 'fail' isn't
+        retryable — second attempt at the same input would hit the same
+        truncation). Cap at one retry to keep the run bounded.
+        """
+        result = await self._probe_tier(
+            client, model, target_tokens, seed, ctx_limit
+        )
+        if result["status"] != "rate_limited":
+            return result
+
+        # Sleep for the TPM window to fully reset, then re-probe once.
+        wait_s = 75.0
+        await asyncio.sleep(wait_s)
+        retry = await self._probe_tier(
+            client, model, target_tokens, seed, ctx_limit
+        )
+        retry["tpm_retry_attempted"] = True
+        retry["tpm_retry_wait_s"] = wait_s
+        # Preserve cost from BOTH attempts (rate-limited rejections
+        # cost $0, but the successful retry costs the full tier price).
+        retry["estimated_cost_usd"] += result.get("estimated_cost_usd", 0.0)
+        return retry
 
     async def _probe_tier(
         self,

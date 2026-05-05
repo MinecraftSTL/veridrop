@@ -16,6 +16,7 @@ Opt-in (config.include_long_context). Default: skipped.
 
 from __future__ import annotations
 
+import asyncio
 import time
 
 from ....core.long_context import (
@@ -116,7 +117,7 @@ class LongContextDetector(ActiveDetector):
                 })
                 continue
 
-            tier_result = await self._probe_tier(
+            tier_result = await self._probe_tier_with_tpm_retry(
                 client, model, target_tokens, seed, ctx_limit
             )
             tier_results.append(tier_result)
@@ -159,6 +160,33 @@ class LongContextDetector(ActiveDetector):
                 "opt_in": True,
             },
         )
+
+    async def _probe_tier_with_tpm_retry(
+        self,
+        client,
+        model: str,
+        target_tokens: int,
+        seed: str,
+        ctx_limit: int,
+    ) -> dict:
+        """Sleep ~75s and retry once on rate_limited — see OpenAI variant
+        for full rationale. Anthropic's RPM window is also 60s sliding,
+        so the same wait-out strategy applies."""
+        result = await self._probe_tier(
+            client, model, target_tokens, seed, ctx_limit
+        )
+        if result["status"] != "rate_limited":
+            return result
+
+        wait_s = 75.0
+        await asyncio.sleep(wait_s)
+        retry = await self._probe_tier(
+            client, model, target_tokens, seed, ctx_limit
+        )
+        retry["tpm_retry_attempted"] = True
+        retry["tpm_retry_wait_s"] = wait_s
+        retry["estimated_cost_usd"] += result.get("estimated_cost_usd", 0.0)
+        return retry
 
     async def _probe_tier(
         self,
