@@ -368,13 +368,17 @@ async def test_long_context_request_error_treated_as_truncation():
 
 
 @pytest.mark.asyncio
-async def test_long_context_partial_recall_in_one_tier():
+async def test_long_context_partial_recall_passes_with_warning():
+    """Live data 2026-05-05 against api.anthropic.com directly: claude-haiku-4-5
+    at 200k tier hit ATLAS (50% middle position) miss while ALPHA (10%) and
+    BRAVO (90%) found — classic lost-in-the-middle. Hard-failing on partial
+    would reject the ground-truth API. Policy: partial at any tier =
+    pass-with-warning (score still reflects 2/3 = 66% of that tier).
+    Loop still stops on partial to avoid wasting probes on the same wobble."""
     det = LongContextDetector()
     det.config = ExecutionConfig.for_mode(Mode.FULL, include_long_context=True)
     client = _MockClient()
 
-    # First tier: full pass. Second tier: 2/3 (partial). Should mark fail
-    # because partial at advertised limits is itself a problem.
     call_count = {"n": 0}
 
     async def degrading_response(**kwargs):
@@ -390,13 +394,17 @@ async def test_long_context_partial_recall_in_one_tier():
 
     client.chat_completions_create = degrading_response
     result = await det.run(client, "gpt-4o-mini")
-    # Partial counts as fail per our policy
-    assert result.status == "fail"
+    # Partial → pass overall (lost-in-the-middle is not truncation)
+    assert result.status == "pass"
     tiers = result.details["tiers_tested"]
     assert tiers[0]["status"] == "pass"
     assert tiers[1]["status"] == "partial"
-    # Stops after partial — third tier not tested
+    # Loop still stops on partial — saves cost
     assert len(tiers) == 2
+    # Truncation is NOT inferred (partial isn't truncation evidence)
+    assert result.details["truncation_inferred_at_tokens"] is None
+    # Summary surfaces the wobble for transparency
+    assert "中段" in result.details["summary"] or "召回" in result.details["summary"]
 
 
 @pytest.mark.asyncio

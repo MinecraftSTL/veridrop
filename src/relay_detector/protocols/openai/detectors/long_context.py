@@ -140,13 +140,11 @@ class LongContextDetector(ActiveDetector):
             # genuinely can't fit this probe size.
             if tier_result["status"] == "rate_limited":
                 break
-            # Stop on fail OR partial — partial is treated as fail in
-            # aggregation, so paying $0.30 for the next tier just to confirm
-            # the same conclusion is wasteful.
-            if tier_result["status"] in ("fail", "partial"):
-                # Estimate where truncation occurred: somewhere between the
-                # last tier that passed and this one. If even 32k failed,
-                # truncation is below 32k.
+            if tier_result["status"] == "fail":
+                # Strong truncation evidence (0-1/3 needles). Infer where
+                # the relay caps. Partial tiers (2/3) are NOT truncation
+                # evidence — both Claude and GPT have known lost-in-the-middle
+                # behavior at advertised-limit tiers.
                 last_pass = next(
                     (
                         t["target_tokens"]
@@ -159,6 +157,10 @@ class LongContextDetector(ActiveDetector):
                     truncation_at = target_tokens // 2  # rough lower-bound
                 else:
                     truncation_at = (last_pass + target_tokens) // 2
+                break
+            if tier_result["status"] == "partial":
+                # Stop probing higher tiers (likely same wobble), but
+                # don't claim truncation.
                 break
 
         score, status, summary = _aggregate(tier_results)
@@ -369,28 +371,29 @@ def _aggregate(tier_results: list[dict]) -> tuple[float, str, str]:
     has_partial = any(t["status"] == "partial" for t in probed)
     skip_count = sum(1 for t in tier_results if t["status"] == "skip")
 
-    if has_fail or has_partial:
-        bad = next(
-            t for t in probed if t["status"] in ("fail", "partial")
-        )
+    if has_fail:
+        bad = next(t for t in probed if t["status"] == "fail")
         status = "fail"
-        if has_fail:
-            summary = (
-                f"{bad['target_tokens'] // 1000}k tokens 处召回失败 "
-                f"({bad['needles_found']}/{bad['needles_total']} needles) "
-                "—— 中转站很可能在此规模截断或路由到小窗口模型"
-            )
-        else:
-            summary = (
-                f"{bad['target_tokens'] // 1000}k tokens 处仅召回 "
-                f"{bad['needles_found']}/{bad['needles_total']} needles "
-                "—— 可能存在轻度截断或上下文压缩"
-            )
+        summary = (
+            f"{bad['target_tokens'] // 1000}k tokens 处召回失败 "
+            f"({bad['needles_found']}/{bad['needles_total']} needles) "
+            "—— 中转站很可能在此规模截断或路由到小窗口模型"
+        )
     else:
-        # All probed tiers passed. Highest probed tier reached.
+        # has_partial possible here. Treat as pass-with-warning: the score
+        # already reflects 2/3 (66 vs 100 per tier), and lost-in-the-middle
+        # at advertised-limit tiers is observed even against ground-truth
+        # APIs. Hard-failing on it makes the detector reject real models.
         highest = probed[-1]["target_tokens"] // 1000
         status = "pass"
         suffix_parts = []
+        if has_partial:
+            partial = next(t for t in probed if t["status"] == "partial")
+            suffix_parts.append(
+                f"{partial['target_tokens'] // 1000}k 档召回 "
+                f"{partial['needles_found']}/{partial['needles_total']}"
+                "(模型在长上下文中段位置的自然召回缺失,非截断)"
+            )
         if skip_count > 0:
             suffix_parts.append("更高档因模型自身上限未测")
         if rate_limited:
