@@ -218,7 +218,14 @@ class LongContextDetector(ActiveDetector):
                 request_timeout_s=timeout,
             )
         except Exception as e:  # noqa: BLE001
-            err_msg = str(e)
+            # Pull raw body when it's an AnthropicAPIError — its str() is
+            # capped at 200 chars which crops important diagnostic detail
+            # like "Requested X, please try again in Y".
+            body = getattr(e, "body", None)
+            err_msg = (
+                f"HTTP {getattr(e, 'status', '?')}: {body}"
+                if isinstance(body, str) else str(e)
+            )
             # Distinguish rate-limit (provider's TPM/RPM cap, not
             # truncation) from real failures (413 / context-too-long /
             # timeout). The first should NOT count against the relay.
@@ -228,7 +235,7 @@ class LongContextDetector(ActiveDetector):
                     "needles_total": len(needles),
                     "needles_found": 0,
                     "status": "rate_limited",
-                    "error": err_msg[:400],
+                    "error": err_msg[:1500],
                     "estimated_cost_usd": 0.0,
                     "input_tokens_reported": None,
                     "response_text_preview": None,
@@ -238,7 +245,7 @@ class LongContextDetector(ActiveDetector):
                 "needles_total": len(needles),
                 "needles_found": 0,
                 "status": "fail",
-                "error": err_msg[:300],
+                "error": err_msg[:1500],
                 "estimated_cost_usd": 0.0,
                 "input_tokens_reported": None,
                 "response_text_preview": None,

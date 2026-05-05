@@ -255,7 +255,15 @@ class LongContextDetector(ActiveDetector):
                 request_timeout_s=timeout,
             )
         except Exception as e:  # noqa: BLE001
-            err_msg = str(e)
+            # OpenAIAPIError truncates body to 200 chars in its str(),
+            # which crops the diagnostic info we most need ("Requested
+            # X tokens, please try again in Yms"). Pull the raw body
+            # directly when it's an API error.
+            body = getattr(e, "body", None)
+            err_msg = (
+                f"HTTP {getattr(e, 'status', '?')}: {body}"
+                if isinstance(body, str) else str(e)
+            )
             # 429 + TPM hits are NOT truncation evidence — they're the
             # provider's own rate limit on long-context tiers (OpenAI
             # exposes a separate `gpt-4.1-mini-long-context` SKU with its
@@ -267,7 +275,7 @@ class LongContextDetector(ActiveDetector):
                     "needles_total": len(needles),
                     "needles_found": 0,
                     "status": "rate_limited",
-                    "error": err_msg[:400],
+                    "error": err_msg[:1500],
                     "estimated_cost_usd": 0.0,
                     "prompt_tokens_reported": None,
                     "response_text_preview": None,
@@ -279,7 +287,7 @@ class LongContextDetector(ActiveDetector):
                 "needles_total": len(needles),
                 "needles_found": 0,
                 "status": "fail",
-                "error": err_msg[:300],
+                "error": err_msg[:1500],
                 "estimated_cost_usd": 0.0,
                 "prompt_tokens_reported": None,
                 "response_text_preview": None,
