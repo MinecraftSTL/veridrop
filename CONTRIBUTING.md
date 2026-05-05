@@ -43,9 +43,6 @@ VERIDROP_JOBS_DIR=/tmp/veridrop-dev ./venv/bin/uvicorn web.server:app --reload
   限速 / 封号。这类 PR 会被拒绝。
 - **闭源企业扩展**:AGPL-3.0 要求作为服务运行的修改版必须也开源,试图加
   闭源 hook 的 PR 会被拒。
-- **佣金 / 推广代码**:商业层(广告、佣金跟踪、推荐位)按设计放在私有 repo
-  里,跟评分代码物理隔离。公开 repo 只放信任路径(评分、检测、key 处理),
-  这个边界不能模糊。
 
 ## 代码风格
 
