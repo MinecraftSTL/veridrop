@@ -245,14 +245,14 @@
         <strong>不会</strong>。你输入的 API key 只在检测的几十秒里被我们的程序短暂使用,
         检测一结束立刻从内存里清掉 — 不会写到任何文件、日志、数据库,Veridrop 服务器上
         永远<strong>找不到你的 key</strong>。报告页面里看到的也是打码版(像 sk-y7xU••••••0h)。
-        我们代码<a href="https://github.com/tuofangzhe/veridrop-full-check">完全公开在 GitHub</a>,
+        我们代码<a href="https://github.com/canarybyte/veridrop">完全公开在 GitHub</a>,
         担心的话可以自己审计或者下载到自己电脑跑。
       </p>
       <p data-mode="developer">
         不会。API key 只存在 <code>asyncio.Job</code> 对象里,job 跑完(成功 / 失败 / 超时)
         立即从内存释放,不写 report JSON、不写 access log、不持久化。报告里 key 经
         <code>mask_api_key()</code> 脱敏(保留前 4 位 + 后 4 位)。完整代码 MIT 许可开源
-        <a href="https://github.com/tuofangzhe/veridrop-full-check">tuofangzhe/veridrop-full-check</a>,
+        <a href="https://github.com/canarybyte/veridrop">canarybyte/veridrop</a>,
         可自托管 — Docker 部署 5 分钟即可。
       </p>
     </div>
