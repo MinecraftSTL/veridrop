@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 
 {% block title %}OpenAI API 中转站检测 · 识别 GPT 偷换 Claude 后端 | Veridrop{% endblock %}
-{% block description %}免费检测 OpenAI / GPT 中转站是不是真透传 — 通过 7 项 Chat Completions 协议检测 + usage 字段后端指纹识别,1 分钟看穿中转站是不是把 GPT 请求偷偷转给 Claude / Gemini 后端伪装。{% endblock %}
+{% block description %}免费检测 OpenAI / GPT 中转站是不是真透传 — 通过 8 项 Chat Completions 协议检测 + usage 字段后端指纹识别,1 分钟看穿中转站是不是把 GPT 请求偷偷转给 Claude / Gemini 后端伪装。{% endblock %}
 {% block og_title %}OpenAI 中转站检测 · 1 分钟识破 GPT 偷换便宜模型{% endblock %}
-{% block og_description %}7 项检测 + usage 字段指纹识别 GPT 替身。免费、不留 key、可分享报告。{% endblock %}
+{% block og_description %}8 项检测 + usage 字段指纹识别 GPT 替身。免费、不留 key、可分享报告。{% endblock %}
 {% block canonical %}https://veridrop.org/openai{% endblock %}
 {% block og_url %}https://veridrop.org/openai{% endblock %}
 
@@ -29,7 +29,7 @@
     "Token 用量异常检测",
     "可分享 JPG / HTML 报告"
   ],
-  "description": "Veridrop 通过 7 项 OpenAI Chat Completions 协议检测,1 分钟内验证 OpenAI / GPT 中转站是否真透传,识别中转站把 GPT 请求转给 Claude / Gemini 后端再包装的协议适配层指纹。"
+  "description": "Veridrop 通过 8 项 OpenAI Chat Completions 协议检测(含长上下文真实性),1 分钟内验证 OpenAI / GPT 中转站是否真透传,识别中转站把 GPT 请求转给 Claude / Gemini 后端再包装的协议适配层指纹。"
 }
 </script>
 <script type="application/ld+json">
@@ -68,7 +68,7 @@
 <section class="hero">
   <h1>OpenAI / GPT 中转站检测</h1>
   <p class="hero-sub answer-capsule" style="text-align:center;max-width:760px;margin:0 auto 14px;">
-    <strong>Veridrop</strong> 通过 7 项 Chat Completions 协议检测 + <strong>usage 字段后端指纹识别</strong>,
+    <strong>Veridrop</strong> 通过 8 项 Chat Completions 协议检测 + <strong>usage 字段后端指纹识别</strong>,
     <strong>1 分钟</strong>识别中转站是真透传 GPT,还是把请求偷偷转给 Claude / Gemini 后端再伪装成 OpenAI 响应。免费、API key 不留存、代码开源。
   </p>
 </section>

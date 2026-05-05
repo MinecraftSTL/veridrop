@@ -25,7 +25,7 @@
   },
   "featureList": [
     "Claude thinking signature 加密级真伪验证",
-    "OpenAI Chat Completions 7 项协议检测",
+    "OpenAI Chat Completions 8 项协议检测",
     "Gemini OpenAI 兼容协议 7 项检测",
     "三协议自动跳转(选错协议一键切换)",
     "提交前死模型预探测",
@@ -165,7 +165,7 @@
     </div>
     <h2>Claude API 中转站检测</h2>
     <p>
-      11 项检测,核心是 thinking signature 加密签名 — 这是 Anthropic 服务端真实加密产物
+      12 项检测,核心是 thinking signature 加密签名 — 这是 Anthropic 服务端真实加密产物
       (500-2000 字符),中转站理论上无法伪造;Token 用量检查会额外识别 usage 虚报风险。
     </p>
     <a class="btn btn-primary protocol-action" href="/claude">检测 Claude 中转站 →</a>
@@ -178,7 +178,7 @@
     </div>
     <h2>OpenAI 中转站检测</h2>
     <p>
-      7 项检测覆盖 Chat Completions 协议合规、function calling、structured output、
+      8 项检测覆盖 Chat Completions 协议合规、function calling、structured output、
       流式一致性。能识别中转站把 GPT 请求偷偷转给 Claude / Gemini 后端的「换芯」行为。
     </p>
     <a class="btn btn-ghost protocol-action" href="/openai">检测 OpenAI 中转站 →</a>
