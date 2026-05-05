@@ -185,6 +185,60 @@ def test_model_context_limit_unknown_falls_back_conservatively():
     assert model_context_limit("") == 128_000
 
 
+# ---------- Adaptive tiers (extreme strategy) ----------
+
+
+def test_tiers_for_model_1m():
+    """1M model gets ~(32k, 500k, 950k) — covers all three of the
+    transport / mid-tier / high-end fraud surfaces. Without adaptive
+    tiers we'd be blind to the 200k–1M range on Sonnet 4.6 / GPT-4.1
+    / Gemini 2.5 Pro / Opus 4.7 etc."""
+    from relay_detector.core.long_context import tiers_for_model
+    tiers = tiers_for_model(1_000_000)
+    assert len(tiers) == 3
+    assert tiers[0] == 32_000  # capped at 32k floor for cheap transport check
+    assert 450_000 <= tiers[1] <= 550_000
+    assert 900_000 <= tiers[2] <= 1_000_000
+    # Strictly ascending
+    assert tiers[0] < tiers[1] < tiers[2]
+
+
+def test_tiers_for_model_200k():
+    """200k model gets ~(32k, 100k, 190k) — same effective coverage as
+    the old hardcoded standard tiers."""
+    from relay_detector.core.long_context import tiers_for_model
+    tiers = tiers_for_model(200_000)
+    assert len(tiers) == 3
+    assert tiers[0] == 32_000
+    assert 90_000 <= tiers[1] <= 110_000
+    assert 180_000 <= tiers[2] <= 200_000
+
+
+def test_tiers_for_model_128k():
+    from relay_detector.core.long_context import tiers_for_model
+    tiers = tiers_for_model(128_000)
+    assert tiers[0] == 32_000
+    assert tiers[-1] <= 128_000
+
+
+def test_tiers_for_model_tiny_16k():
+    """gpt-3.5-turbo class — 32k floor doesn't apply, scales down."""
+    from relay_detector.core.long_context import tiers_for_model
+    tiers = tiers_for_model(16_000)
+    assert tiers[0] < 32_000  # floor disabled for small models
+    assert tiers[-1] <= 16_000
+    assert all(tiers[i] < tiers[i+1] for i in range(len(tiers)-1))
+
+
+def test_tiers_for_model_dedupes_close_tiers():
+    """For ~64k models the proportional tiers (32k, 32k, 60.8k) would
+    have duplicates — the 1.5x spread filter drops them."""
+    from relay_detector.core.long_context import tiers_for_model
+    tiers = tiers_for_model(64_000)
+    # Should have at most 2 distinct tiers (no duplicates within 1.5x)
+    assert all(tiers[i] * 1.5 <= tiers[i+1] for i in range(len(tiers)-1))
+
+
 # ---------- Detector behaviour ----------
 
 
@@ -394,3 +448,84 @@ async def test_long_context_skip_overall_when_model_too_small():
     assert client.calls == []  # spent zero
     tiers = result.details["tiers_tested"]
     assert all(t["status"] == "skip" for t in tiers)
+
+
+@pytest.mark.asyncio
+async def test_long_context_extreme_uses_adaptive_tiers_for_1m_model():
+    """include_long_context_extreme=True on a 1M model probes proportionally
+    (~32k, ~500k, ~950k) instead of hardcoded (32k, 100k, 200k). This is
+    the WHOLE POINT of extreme mode — without it big models are tested at
+    only 20% of advertised capacity, which lets a "1M-claimed but capped
+    at 256k" relay slip through with a green badge."""
+    det = LongContextDetector()
+    det.config = ExecutionConfig.for_mode(
+        Mode.FULL,
+        include_long_context=False,
+        include_long_context_extreme=True,
+    )
+    client = _MockClient()
+
+    async def smart_response(**kwargs):
+        prompt = kwargs["messages"][0]["content"]
+        ids = ANSWER_RE.findall(prompt.upper())
+        return ({}, _build_resp("\n".join(ids[:3])), {}, 0)
+
+    client.chat_completions_create = smart_response
+    result = await det.run(client, "gpt-4.1-mini")  # 1,047,576 context
+    tiers = result.details["tiers_tested"]
+    assert len(tiers) == 3
+    # Tier 1 still 32k (transport floor); tier 3 near model limit
+    assert tiers[0]["target_tokens"] == 32_000
+    assert tiers[2]["target_tokens"] >= 900_000  # ~95% of 1M
+    assert result.details["tier_strategy"] == "extreme"
+
+
+@pytest.mark.asyncio
+async def test_long_context_standard_tiers_unchanged():
+    """Default standard mode (only include_long_context=True) keeps
+    hardcoded (32k, 100k, 200k) tiers — backward compatibility for
+    everyone who liked the old behavior."""
+    det = LongContextDetector()
+    det.config = ExecutionConfig.for_mode(
+        Mode.FULL,
+        include_long_context=True,
+        include_long_context_extreme=False,
+    )
+    client = _MockClient()
+
+    async def smart_response(**kwargs):
+        prompt = kwargs["messages"][0]["content"]
+        ids = ANSWER_RE.findall(prompt.upper())
+        return ({}, _build_resp("\n".join(ids[:3])), {}, 0)
+
+    client.chat_completions_create = smart_response
+    result = await det.run(client, "gpt-4.1-mini")  # 1M model
+    tiers = result.details["tiers_tested"]
+    targets = [t["target_tokens"] for t in tiers]
+    assert targets == [32_000, 100_000, 200_000]  # not adaptive
+    assert result.details["tier_strategy"] == "standard"
+
+
+@pytest.mark.asyncio
+async def test_long_context_extreme_implies_standard():
+    """If both flags are set, extreme wins (it's a superset). If only
+    extreme is set, the detector still runs (extreme acts as enabler)."""
+    det = LongContextDetector()
+    det.config = ExecutionConfig.for_mode(
+        Mode.FULL,
+        include_long_context=False,
+        include_long_context_extreme=True,
+    )
+    client = _MockClient()
+
+    async def smart_response(**kwargs):
+        prompt = kwargs["messages"][0]["content"]
+        ids = ANSWER_RE.findall(prompt.upper())
+        return ({}, _build_resp("\n".join(ids[:3])), {}, 0)
+
+    client.chat_completions_create = smart_response
+    result = await det.run(client, "gpt-4o-mini")
+    # Did NOT skip even though include_long_context=False — extreme alone
+    # is enough to enable the detector.
+    assert result.status != "skip"
+    assert result.details["tier_strategy"] == "extreme"

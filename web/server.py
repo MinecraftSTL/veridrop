@@ -356,6 +356,7 @@ async def api_detect_claude(
     model: str = Form(...),
     mode: str = Form("full"),
     include_long_context: bool = Form(False),
+    include_long_context_extreme: bool = Form(False),
 ) -> JSONResponse:
     base_url = base_url.strip()
     api_key = api_key.strip()
@@ -386,6 +387,7 @@ async def api_detect_claude(
                 base_url, api_key, model, mode,
                 protocol=inferred,
                 include_long_context=include_long_context,
+                include_long_context_extreme=include_long_context_extreme,
             )
             return JSONResponse({"job_id": job_id, "status_url": f"/api/status/{job_id}"})
     elif _protocol_from_model(model) == "gemini":
@@ -404,6 +406,7 @@ async def api_detect_claude(
         base_url, api_key, model, mode,
         protocol="anthropic",
         include_long_context=include_long_context,
+        include_long_context_extreme=include_long_context_extreme,
     )
     # NOTE: never echo api_key back in the response
     return JSONResponse({"job_id": job_id, "status_url": f"/api/status/{job_id}"})
@@ -417,6 +420,7 @@ async def api_detect_openai(
     model: str = Form(...),
     mode: str = Form("standard"),
     include_long_context: bool = Form(False),
+    include_long_context_extreme: bool = Form(False),
 ) -> JSONResponse:
     base_url = base_url.strip()
     api_key = api_key.strip()
@@ -437,6 +441,7 @@ async def api_detect_openai(
         base_url, api_key, model, mode,
         protocol="openai",
         include_long_context=include_long_context,
+        include_long_context_extreme=include_long_context_extreme,
     )
     return JSONResponse({"job_id": job_id, "status_url": f"/api/status/{job_id}"})
 

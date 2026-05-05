@@ -19,20 +19,17 @@ from __future__ import annotations
 import time
 
 from ....core.long_context import (
+    STANDARD_TIERS,
     assemble_haystack,
     build_question,
     estimate_cost_usd,
     evaluate_recalls,
     make_needles,
     model_context_limit,
+    tiers_for_model,
 )
 from ....core.models import DetectorResult
 from .base import ActiveDetector
-
-
-# Same tier sizes as OpenAI for cross-protocol comparability. Stop on first
-# fail/partial. At Haiku 4.5 ($1/M input) total cost if all probed: ~$0.33.
-TIERS_TOKENS = (32_000, 100_000, 200_000)
 
 PASS_THRESHOLD = 3
 PARTIAL_THRESHOLD = 2
@@ -49,12 +46,15 @@ class LongContextDetector(ActiveDetector):
     weight = 15.0  # heavy — context-window fraud is among the worst lies
 
     async def run(self, client, model: str) -> DetectorResult:
-        # Opt-in gate: respect ExecutionConfig.include_long_context. Without
-        # this gate every full-mode detection would burn $0.05–$0.50 of the
-        # user's API key.
-        if not self.config or not self.config.include_long_context:
+        # Opt-in gate. include_long_context_extreme is the superset (uses
+        # adaptive tiers up to model's advertised limit), so it implies
+        # the standard one — checking either is enough to enable.
+        cfg = self.config
+        opt_in_standard = bool(cfg and cfg.include_long_context)
+        opt_in_extreme = bool(cfg and cfg.include_long_context_extreme)
+        if not (opt_in_standard or opt_in_extreme):
             return self.skip(
-                "长上下文检测为可选项,需在请求时勾选(成本约 $0.05–$0.50)"
+                "长上下文检测为可选项,需在请求时勾选(标准档 $0.05–$0.50 / 极限档 $0.05–$8)"
             )
 
         seed = f"{client.base_url}:{model}:{int(time.time())}"
@@ -64,8 +64,17 @@ class LongContextDetector(ActiveDetector):
         reached_tier: int | None = None
 
         ctx_limit = model_context_limit(model)
+        # Extreme strategy: adaptive tiers up to ctx_limit (e.g. 32k →
+        # 500k → 950k for a 1M model). Standard: hardcoded (32k, 100k,
+        # 200k). Extreme wins when both are checked.
+        if opt_in_extreme:
+            tier_set = tiers_for_model(ctx_limit)
+            tier_strategy = "extreme"
+        else:
+            tier_set = STANDARD_TIERS
+            tier_strategy = "standard"
 
-        for target_tokens in TIERS_TOKENS:
+        for target_tokens in tier_set:
             if target_tokens > ctx_limit:
                 tier_results.append({
                     "target_tokens": target_tokens,
@@ -108,6 +117,7 @@ class LongContextDetector(ActiveDetector):
             score,
             {
                 "summary": summary,
+                "tier_strategy": tier_strategy,
                 "tiers_tested": tier_results,
                 "highest_tier_reached": reached_tier,
                 "truncation_inferred_at_tokens": truncation_at,

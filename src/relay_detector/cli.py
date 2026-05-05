@@ -225,9 +225,19 @@ def detect(
         False,
         "--long-context/--no-long-context",
         help=(
-            "Opt in to needle-in-haystack long-context probing (32k → 100k → "
-            "200k tokens). Adds ~$0.05–$0.50 per run depending on relay "
-            "behaviour. Off by default."
+            "Opt in to needle-in-haystack long-context probing at fixed "
+            "32k → 100k → 200k tiers. Adds ~$0.05–$0.50 per run. Off by default."
+        ),
+    ),
+    include_long_context_extreme: bool = typer.Option(
+        False,
+        "--long-context-extreme/--no-long-context-extreme",
+        help=(
+            "Adaptive long-context probing up to the model's advertised "
+            "limit (e.g. 32k → 500k → 950k for a 1M model). Catches "
+            "'advertised X but capped at Y' fraud the standard tier misses. "
+            "Adds $0.05–$8 per run depending on model. Implies "
+            "--long-context (it's a superset). Off by default."
         ),
     ),
 ) -> None:
@@ -263,6 +273,7 @@ def detect(
     if timeout is not None:
         config.request_timeout_s = timeout
     config.include_long_context = include_long_context
+    config.include_long_context_extreme = include_long_context_extreme
 
     asyncio.run(_run_detect(proto, base_url, api_key, model, config, output))
 

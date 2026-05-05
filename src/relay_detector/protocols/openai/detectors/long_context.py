@@ -22,21 +22,17 @@ from __future__ import annotations
 import time
 
 from ....core.long_context import (
+    STANDARD_TIERS,
     assemble_haystack,
     build_question,
     estimate_cost_usd,
     evaluate_recalls,
     make_needles,
     model_context_limit,
+    tiers_for_model,
 )
 from ....core.models import DetectorResult
 from .base import ActiveDetector
-
-
-# Tier sizes in input tokens. Stopping after the first failure means even a
-# bad relay only burns the cheapest probe(s); a clean relay pays full price
-# for all three but at gpt-4o-mini that's still ~$0.50 total.
-TIERS_TOKENS = (32_000, 100_000, 200_000)
 
 # Each tier's pass threshold. Real models occasionally miss a needle —
 # Anthropic and OpenAI both publish ~99% recall, so 2/3 needles is "minor
@@ -57,11 +53,15 @@ class LongContextDetector(ActiveDetector):
     weight = 15.0  # heavy when it runs — context window is a top-tier promise
 
     async def run(self, client, model: str) -> DetectorResult:
-        # Opt-in gate: respects config.include_long_context. Without this gate,
-        # every full-mode detection would burn $0.50 of the user's API key.
-        if not self.config or not self.config.include_long_context:
+        # Opt-in gate. `include_long_context_extreme` is the superset
+        # (uses adaptive tiers up to model's advertised limit), so it
+        # implies the standard one — checking either is enough to enable.
+        cfg = self.config
+        opt_in_standard = bool(cfg and cfg.include_long_context)
+        opt_in_extreme = bool(cfg and cfg.include_long_context_extreme)
+        if not (opt_in_standard or opt_in_extreme):
             return self.skip(
-                "长上下文检测为可选项,需在请求时勾选(成本约 $0.05–$0.50)"
+                "长上下文检测为可选项,需在请求时勾选(标准档 $0.05–$0.50 / 极限档 $0.05–$8)"
             )
 
         seed = f"{client.base_url}:{model}:{int(time.time())}"
@@ -70,12 +70,17 @@ class LongContextDetector(ActiveDetector):
         truncation_at: int | None = None
         reached_tier: int | None = None
 
-        # Don't probe beyond the model's own advertised limit — those tiers
-        # would generate 400 errors that would be misclassified as relay
-        # truncation. The model itself is the limiter, not the relay.
         ctx_limit = model_context_limit(model)
+        # Extreme strategy: adaptive tiers up to ctx_limit. Standard:
+        # hardcoded (32k, 100k, 200k). Extreme wins when both are checked.
+        if opt_in_extreme:
+            tier_set = tiers_for_model(ctx_limit)
+            tier_strategy = "extreme"
+        else:
+            tier_set = STANDARD_TIERS
+            tier_strategy = "standard"
 
-        for target_tokens in TIERS_TOKENS:
+        for target_tokens in tier_set:
             if target_tokens > ctx_limit:
                 tier_results.append({
                     "target_tokens": target_tokens,
@@ -124,11 +129,13 @@ class LongContextDetector(ActiveDetector):
             score,
             {
                 "summary": summary,
+                "tier_strategy": tier_strategy,
                 "tiers_tested": tier_results,
                 "highest_tier_reached": reached_tier,
                 "truncation_inferred_at_tokens": truncation_at,
                 "estimated_cost_usd": round(total_cost_usd, 4),
                 "model": model,
+                "model_context_limit": ctx_limit,
                 "opt_in": True,
             },
         )

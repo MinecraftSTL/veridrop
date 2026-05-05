@@ -112,6 +112,52 @@ def model_context_limit(model: str) -> int:
     return 128_000
 
 
+# ---------- Tier strategies ----------
+
+# Standard tiers: hardcoded, capped at 200k. Cheap probes that catch the
+# overwhelming majority of relay truncation (transport-layer + mid-tier
+# substitution). Total max cost ~$1 even on Opus 4.7.
+STANDARD_TIERS = (32_000, 100_000, 200_000)
+
+
+def tiers_for_model(ctx_limit: int) -> tuple[int, ...]:
+    """Adaptive tiers covering low/mid/high of model's context window.
+
+    For a 1M model returns ~(32k, 500k, 950k); for a 200k model returns
+    ~(32k, 100k, 190k); for tiny 16k models returns ~(5k, 8k, 15k).
+
+    Three principles:
+      1. Always test 32k as tier 1 when the model can take it — that's
+         where transport-layer truncation (nginx body cap, relay's own
+         max_input) typically bites, and it's cheap regardless of model.
+      2. 50% of context for tier 2 — middle of the range.
+      3. 95% of context for tier 3 — close enough to the limit to catch
+         "advertised X but actually Y<X" fraud, with 5% headroom for the
+         question + small response tokens.
+
+    Tiers within 1.5x of each other are deduplicated: a 64k model would
+    otherwise produce (32k, 32k, 60k) which adds no extra coverage. After
+    dedupe smaller models can return only 2 tiers, which is fine — the
+    detector just runs fewer probes.
+
+    This is the EXTREME tier strategy. The standard strategy
+    (STANDARD_TIERS) caps at 200k regardless of model — cheaper, but
+    blind to fraud at the 200k–1M range on big-context models.
+    """
+    raw = [
+        min(32_000, int(ctx_limit * 0.30)),
+        int(ctx_limit * 0.50),
+        int(ctx_limit * 0.95),
+    ]
+    out: list[int] = []
+    for t in raw:
+        if t < 1_000:
+            continue
+        if not out or t >= out[-1] * 1.5:
+            out.append(t)
+    return tuple(out)
+
+
 @dataclass
 class Needle:
     """One fact embedded in the haystack that the model must recall.

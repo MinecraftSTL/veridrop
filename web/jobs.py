@@ -83,13 +83,18 @@ async def submit(
     mode: str,
     protocol: str = "anthropic",
     include_long_context: bool = False,
+    include_long_context_extreme: bool = False,
 ) -> str:
     """Queue a detection job and return the job id immediately.
 
-    When ``include_long_context`` is True, the runner will probe long-context
-    truncation at 32k/100k/200k tiers — adds ~$0.05–$0.50 of upstream API
-    cost and 30–90s of wall time. Off by default so a regular detect stays
-    cheap (~$0.005).
+    Long-context probe is opt-in. Two tiers:
+      - ``include_long_context`` (standard): 32k/100k/200k probes,
+        $0.05–$0.50 upstream cost, 30–90s extra wall time.
+      - ``include_long_context_extreme`` (adaptive): probes proportionally
+        up to the model's advertised limit (e.g. 32k→500k→950k for 1M
+        models). $0.05–$8 cost, 30s–5min wall time. Catches "advertised X
+        but capped at Y<X" fraud that the standard tier misses on big
+        models. Implies standard (it's a superset).
     """
     job_id = _new_job_id()
     job = Job(
@@ -104,7 +109,7 @@ async def submit(
     asyncio.create_task(
         _run(
             job_id, base_url, api_key, model, mode, protocol,
-            include_long_context,
+            include_long_context, include_long_context_extreme,
         )
     )
     return job_id
@@ -169,6 +174,7 @@ async def _run(
     mode: str,
     protocol: str,
     include_long_context: bool = False,
+    include_long_context_extreme: bool = False,
 ) -> None:
     async with _SEMA:
         async with _LOCK:
@@ -181,6 +187,7 @@ async def _run(
         try:
             cfg = ExecutionConfig.for_mode(Mode(mode), max_concurrent=3)
             cfg.include_long_context = include_long_context
+            cfg.include_long_context_extreme = include_long_context_extreme
             if protocol == "openai":
                 outcome = await _run_openai(base_url, api_key, model, cfg)
                 report_protocol = Protocol.OPENAI

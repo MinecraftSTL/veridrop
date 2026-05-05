@@ -124,7 +124,20 @@
         <span class="checkbox-hint">
           额外发 32k → 100k → 200k tokens 探针验证中转站是否真实兑现宣传的
           context window(识别截断 / 路由到小窗口模型)。失败立即停。
-          <strong>额外成本约 $0.05–$0.30,由你的 API key 支付。</strong>
+          <strong>额外成本约 $0.05–$1.00,由你的 API key 支付。</strong>
+        </span>
+      </label>
+    </div>
+
+    <div class="field-checkbox">
+      <input type="checkbox" id="include_long_context_extreme" name="include_long_context_extreme" value="true" />
+      <label for="include_long_context_extreme">
+        <strong>极限检测:模型完整 context</strong>
+        <span class="checkbox-hint">
+          按模型上限等比探测(Sonnet 4.6 / Opus 4.6 / Opus 4.7 都是 1M,会测到 950k)。
+          能 catch「宣传 1M 实际只给 200k」这类高端中转站欺诈,
+          标准档完全测不到。
+          <strong>额外成本 $0.05–$8,大模型成本可能很高,由你的 API key 支付。</strong>
         </span>
       </label>
     </div>

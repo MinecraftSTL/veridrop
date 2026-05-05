@@ -39,6 +39,13 @@ class ExecutionConfig(BaseModel):
     # a single full run can cost $0.10–$0.50 (vs ~$0.005 for the rest of the
     # full mode). Detectors that respect this flag must self-skip when False.
     include_long_context: bool = False
+    # "Extreme" tier: probes proportionally up to the model's advertised
+    # context limit (e.g. 32k → 500k → 950k for a 1M model). Catches the
+    # "advertised X tokens but actually capped at Y < X" fraud that the
+    # standard tier (capped at 200k) misses. Cost ranges to ~$8 for 1M
+    # Opus runs — must be a separately confirmed opt-in. When True, takes
+    # precedence over `include_long_context` (it's a superset).
+    include_long_context_extreme: bool = False
 
     @classmethod
     def for_mode(cls, mode: Mode, **overrides: Any) -> ExecutionConfig:
