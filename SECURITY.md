@@ -1,84 +1,84 @@
-# Security Policy
+# 安全策略
 
-Veridrop's product premise is **"users entrust us with their API keys to test
-relay authenticity"**. Security isn't a checkbox — it's the whole business.
+Veridrop 的产品本质是「用户把 API key 交给我们检测中转站真伪」。
+**所以安全不是我们勾的某个选项,而是产品本身**。
 
-## How we handle API keys
+## 我们怎么处理 API key
 
-This is the bit users care most about. Verifiable from the code:
+这是用户最关心的事,代码可逐行验证:
 
-| What we do | Where you can verify |
+| 我们做了什么 | 你在哪里能验证 |
 |---|---|
-| API keys live ONLY in the in-memory `Job` object during a detection run | [`web/jobs.py`](web/jobs.py) — search for `api_key` |
-| Keys are NEVER written to the report JSON | [`web/jobs.py:_run`](web/jobs.py) — `mask_api_key()` is the only thing that touches disk |
-| Keys are NEVER written to logs | No print/log statements include `api_key` (grep verifies it) |
-| Keys are NEVER persisted in any database | We don't have a database for jobs at all — JSON files only, masked |
-| Reports show keys masked: `sk-y7xU••••••0h` | [`mask_api_key`](src/relay_detector/models.py) function |
-| `.env` files are gitignored | [`.gitignore`](.gitignore) |
-| Production deployment is on a single, owned VPS — no third-party processors | We never sell, share, or proxy keys to any vendor |
+| API key 只活在内存里的 `Job` 对象中,检测完成立即清空 | [`web/jobs.py`](web/jobs.py) 搜 `api_key` |
+| key **永不**写入报告 JSON | [`web/jobs.py:_run`](web/jobs.py) 里只有 `mask_api_key()` 输出落盘 |
+| key **永不**写日志 | grep print/log 语句,不存在带 `api_key` 字段的输出 |
+| key **永不**写数据库 | 我们根本没有数据库 — 只有 JSON 文件,且都已脱敏 |
+| 报告里的 key 显示为脱敏形式 `sk-y7xU••••••0h` | [`mask_api_key`](src/relay_detector/models.py) 函数 |
+| `.env` 文件 gitignored | [`.gitignore`](.gitignore) |
+| 生产部署在自有 VPS,不经任何第三方处理器 | 永不出售、共享、代理 key 给任何上游之外的厂商 |
 
-If you don't trust the hosted service, **clone and run locally**. The same code
-in this repo IS the production code at veridrop.org.
+不放心 SaaS,**clone 到自己机器跑**。这个 repo 的代码就是 veridrop.org 生产
+环境的代码,完全一致。
 
-## Reporting a vulnerability
+## 报告漏洞
 
-If you find any of:
+如果你发现下面任何一种情况:
 
-- A way to extract API keys from the running service (memory / process / logs)
-- A code path that writes keys to disk, even temporarily
-- A code path that sends user keys to any non-upstream destination
-- A relay-side detection bypass that would silently mark a fraudulent relay as authentic
-- Any other security issue
+- 能从运行中的服务里提取 API key 的途径(内存 / 进程 / 日志)
+- 能让 key 写到磁盘的代码路径,即使是临时的
+- 把用户 key 发到非上游目标的代码路径
+- 让假冒中转站被错判为真品的检测旁路
+- 其他安全相关的问题
 
-**Please do NOT open a public GitHub issue.** Instead:
+**请不要开公开 GitHub issue**。请改用以下方式之一:
 
-- Email: open an issue marked "[SECURITY]" with NO sensitive details, asking
-  for a private channel; or
-- Use GitHub's [private vulnerability reporting](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability)
-  on this repo
+- 邮件 / 标记 `[SECURITY]` 但不带敏感细节的 issue,要求私聊渠道;或
+- 用 GitHub 自带的[私下漏洞披露](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability)
+  功能(repo 主页 Security 标签)
 
-We aim to respond within **72 hours**. For confirmed issues:
+我们目标 **72 小时内回复**。确认有效后:
 
-- We patch
-- We notify the live service operators (veridrop.org)
-- We publish an advisory at [GitHub Security Advisories](https://github.com/canarybyte/veridrop/security/advisories)
-  after a reasonable disclosure window (typically 14 days, longer if the bug is severe)
-- We credit the reporter (unless they prefer anonymity)
+- 修复
+- 通知 veridrop.org 在线服务运营
+- 在合理披露窗口(通常 14 天,严重的会更长)后,通过
+  [GitHub Security Advisories](https://github.com/canarybyte/veridrop/security/advisories) 公开
+- 给报告者署名(如希望匿名我们尊重)
 
-## What's IN scope
+## 范围内(In Scope)
 
-- Anything in this repository's code, configurations, or default deployment setup
-- The hosted service at veridrop.org
-- API key handling, both in-memory and on-the-wire (TLS expectations)
-- Authentication / authorization on any future admin features
+- 本仓库的代码、配置、默认部署设置
+- veridrop.org 在线服务
+- API key 处理(内存 + 网络 TLS 期望)
+- 任何后续管理后台的 auth / authz
 
-## What's OUT of scope
+## 范围外(Out of Scope)
 
-- **Upstream relay vulnerabilities**: if `some-relay.com` has a bug, that's
-  their responsibility, not ours. Veridrop just tests them.
-- **DoS / rate-limit** on veridrop.org: we run on a single VPS; obviously
-  someone can DDoS it. Not a vulnerability per se.
-- **Phishing sites**: people may set up fake "veridrop.io" / "veridrop.cn"
-  trying to steal API keys. We're aware. Always verify the URL is `veridrop.org`.
-- **Self-hosted misconfigurations**: if you run Veridrop in a way that
-  exposes keys (e.g. enable verbose logging, expose `web_data/`), that's on you.
+- **上游中转站漏洞**:`some-relay.com` 自己有 bug 是它们的责任,Veridrop
+  只负责检测它们
+- **DoS / 限流**:我们就一台 VPS,被 DDoS 是常态运维问题不算漏洞
+- **钓鱼网站**:网上可能有人开 `veridrop.io` / `veridrop.cn` 仿站偷 key,
+  我们知道。**只信 `veridrop.org` 这一个域名**
+- **自托管错配**:你启 verbose 日志 / 暴露 `web_data/` 是你自己的事,不是
+  我们的漏洞
 
-## Defense in depth
+## 防御深度
 
-We design for the case where the operator's server itself gets compromised:
+我们设计时假定服务器本身可能被打穿,所以:
 
-- Keys never touch disk — even a full filesystem dump won't have them
-- Reports are masked at write time — no "raw before mask" form exists
-- The code doesn't have a "verbose mode" that prints keys (intentional)
+- key 永远不接触磁盘 — 整盘 dump 也找不到 key
+- 报告写盘前已脱敏 — 不存在"原始未脱敏"的中间形态
+- 代码里没有 verbose 模式会打印 key(故意没有)
 
-If you find any exception to these claims in the code, please report it.
+如果你在代码里发现以上任何承诺有反例,**请报告**。
 
-## Bug bounty
+## 漏洞赏金
 
-We don't have a paid bug bounty program. We do have public credit + a
-co-author commit attribution if you'd like one. AGPL means we're a community
-project, not a venture-backed company — sorry, no cash.
+我们没有付费 bounty 计划。但有:
 
-Thanks for reading this. Veridrop only works if it's actually trustworthy,
-and the only way to keep it trustworthy is for people like you to keep it
-honest.
+- 公开 credit
+- commit co-author 署名(如你愿意)
+
+AGPL 意味着 Veridrop 是社区项目,不是 VC 公司,抱歉没现金。
+
+谢谢你读完。Veridrop 只在它真的可信的时候才有价值,而它持续可信的唯一办法
+是有像你这样的人来不断检验它。
