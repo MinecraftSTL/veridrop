@@ -722,6 +722,69 @@ code {
 .lb-history-score-warn  { background: #fffbeb; color: #92400e; }
 .lb-history-score-fail  { background: #fef2f2; color: #991b1b; }
 
+/* Leaderboard section headers — separate Top 10 from全部列表. */
+.lb-section-heading {
+  margin: 32px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.lb-section-heading h2 {
+  font-size: 20px;
+  margin: 0 0 4px;
+  letter-spacing: -0.01em;
+}
+.lb-section-heading p {
+  margin: 0;
+}
+
+/* Pagination — server-rendered links so each page is a distinct URL
+ * for SEO long-tail (?page=2 etc.). Designed mobile-first: chips
+ * wrap onto multiple lines if needed instead of overflowing. */
+.lb-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin: 28px 0;
+  font-size: 14px;
+}
+.lb-page-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+}
+.lb-page-btn:hover {
+  background: var(--bg-soft);
+  text-decoration: none;
+}
+.lb-page-current {
+  background: var(--green);
+  color: white;
+  border-color: var(--green);
+  font-weight: 600;
+}
+.lb-page-current:hover {
+  background: var(--green);  /* lock — current page isn't a link */
+  color: white;
+}
+.lb-page-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.lb-page-ellipsis {
+  align-self: flex-end;
+  padding: 7px 4px;
+  color: var(--muted);
+}
+
 @media (max-width: 640px) {
   .lb-detail-summary {
     grid-template-columns: 1fr;

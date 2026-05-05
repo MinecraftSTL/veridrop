@@ -135,19 +135,47 @@ async def gemini_index(request: Request) -> HTMLResponse:
     )
 
 
+_LEADERBOARD_TOP_N = 10
+_LEADERBOARD_PER_PAGE = 25
+
+
 @app.get("/leaderboard", response_class=HTMLResponse)
-async def leaderboard_page(request: Request) -> HTMLResponse:
+async def leaderboard_page(
+    request: Request,
+    page: int = 1,
+) -> HTMLResponse:
     """中转站红黑榜 — 按域名聚合所有公开检测报告。
 
     SEO/GEO 杀手锏:任意「XX 中转站怎么样」搜索直接命中此页。
+
+    Layout:
+      - Top 10 (主榜):always visible, no pagination, sorted by Bayesian-
+        weighted ranking score so consistently-tested relays beat fluky-
+        single-pass ones.
+      - Rest (全部列表):paginated 25/page via ?page=N. Each page indexable
+        for SEO long-tail (`?page=2` etc.).
     """
-    relays, summary = leaderboard.aggregate()
+    all_relays, summary = leaderboard.aggregate()
+    top = all_relays[:_LEADERBOARD_TOP_N]
+    rest = all_relays[_LEADERBOARD_TOP_N:]
+
+    total_rest = len(rest)
+    total_pages = max(1, (total_rest + _LEADERBOARD_PER_PAGE - 1) // _LEADERBOARD_PER_PAGE)
+    page = max(1, min(page, total_pages))
+    rest_start = (page - 1) * _LEADERBOARD_PER_PAGE
+    rest_page_items = rest[rest_start:rest_start + _LEADERBOARD_PER_PAGE]
+
     return templates.TemplateResponse(
         request,
         "leaderboard.html",
         {
-            "relays": relays,
+            "top_relays": top,
+            "rest_relays": rest_page_items,
+            "rest_start_rank": _LEADERBOARD_TOP_N + rest_start + 1,
             "summary": summary,
+            "page": page,
+            "total_pages": total_pages,
+            "has_rest": total_rest > 0,
             "protocol_labels": leaderboard.PROTOCOL_LABELS,
             "verdict_labels": leaderboard.VERDICT_LABELS,
         },
@@ -591,6 +619,13 @@ async def result_page(request: Request, job_id: str) -> HTMLResponse:
         return templates.TemplateResponse(
             request, "running.html", {"job_id": job_id, "job": j},
         )
+    # Domain feeds the breadcrumb (首页 › 红黑榜 › {domain} › 报告).
+    # Goes through is_valid_domain so a malformed base_url doesn't produce
+    # a broken /leaderboard/{garbage} link.
+    base_url = str(j.report.get("base_url") or "")
+    domain = leaderboard._extract_domain(base_url)  # noqa: SLF001
+    if domain and not leaderboard.is_valid_domain(domain):
+        domain = ""
     return templates.TemplateResponse(
         request, "result.html",
         {
@@ -598,6 +633,7 @@ async def result_page(request: Request, job_id: str) -> HTMLResponse:
             "report": j.report,
             "rows": _result_rows(j.report),
             "report_notes": _report_notes(j.report),
+            "breadcrumb_domain": domain,
             **_seo_meta_for_report(j.report),
         },
     )

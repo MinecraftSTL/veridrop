@@ -35,6 +35,12 @@ VERDICT_LABELS = {"passed": "通过", "marginal": "存在风险", "failed": "未
 # "single sample" so users know not to over-interpret.
 _MIN_RANKED_SAMPLES = 2
 
+# Bayesian ranking parameters. The prior pulls few-sample relays toward
+# a neutral 50 so a fluky 1-test "100/100" can't outrank a consistently
+# 99/100 relay tested 100 times. See "排名指标" discussion 2026-05-05.
+_RANKING_PRIOR_VALUE = 50.0
+_RANKING_PRIOR_WEIGHT = 5.0
+
 # Strict allow-list for path parameter — accept only what _extract_domain
 # could legitimately produce from a real base_url. Rejects anything with
 # slashes, query strings, uppercase, unicode, leading/trailing dots/hyphens.
@@ -94,6 +100,33 @@ class RelayStats:
         for p in self.by_protocol.values():
             all_scores.extend(p.scores)
         return statistics.median(all_scores) if all_scores else 0.0
+
+    @property
+    def ranking_score(self) -> float:
+        """Bayesian-weighted score for ranking. Pulls few-sample relays
+        toward a neutral prior (50) so a single fluky 100% doesn't beat
+        a consistently 99% relay tested 100 times.
+
+        Examples (prior=50, weight=5):
+          1 × 100  → 58.3   (mostly prior)
+          5 × 100  → 75.0   (half prior, half observed)
+          20 × 100 → 90.0   (mostly observed)
+          100 × 99 → 96.6   ← outranks "5 × 100" (75.0) ✓
+
+        Display shows median (familiar to users); ranking_score only
+        drives sort order. The two together communicate "we ranked it
+        by confidence-weighted score, here's the typical (median) value
+        too."
+        """
+        all_scores: list[float] = []
+        for p in self.by_protocol.values():
+            all_scores.extend(p.scores)
+        n = len(all_scores)
+        if n == 0:
+            return _RANKING_PRIOR_VALUE
+        return (sum(all_scores) + _RANKING_PRIOR_VALUE * _RANKING_PRIOR_WEIGHT) / (
+            n + _RANKING_PRIOR_WEIGHT
+        )
 
     @property
     def last_checked(self) -> datetime | None:
@@ -204,10 +237,12 @@ def aggregate() -> tuple[list[RelayStats], dict[str, int]]:
                     pass
 
     relays = list(by_domain.values())
-    # Stable sort: ranked first (by median desc), then unranked (by recency desc)
+    # Sort by Bayesian-weighted ranking score (descending), then by
+    # is_ranked (≥2 samples first — single-sample relays sink to the
+    # bottom no matter how high their fluke score), then recency tiebreak.
     relays.sort(key=lambda r: (
-        not r.is_ranked,                  # False (ranked) sorts before True
-        -r.overall_median,                # Higher score first
+        not r.is_ranked,                  # ranked relays float to the top
+        -r.ranking_score,                 # then by Bayesian-weighted score
         -(r.last_checked.timestamp() if r.last_checked else 0),
     ))
 

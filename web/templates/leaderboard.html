@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
 {% block title %}AI API 中转站红黑榜 · 真实检测数据排行 | Veridrop{% endblock %}
-{% block description %}基于 {{ summary.total_reports }} 份社区公开检测数据,聚合 {{ summary.total_relays }} 家 AI API 中转站,按真实检测分数排序。识破假冒 Claude / GPT / Gemini 中转站,看哪些站真透传、哪些站协议有问题。{% endblock %}
+{% block description %}基于 {{ summary.total_reports }} 份社区公开检测数据,按贝叶斯加权排名 {{ summary.total_relays }} 家 AI API 中转站。Top 10 主榜显示长期稳定测试的高分中转站,识破假冒 Claude / GPT / Gemini 中转站。{% endblock %}
 {% block og_title %}AI API 中转站红黑榜 · {{ summary.total_relays }} 家中转站真实评分{% endblock %}
-{% block og_description %}{{ summary.total_reports }} 份社区检测数据自动聚合,按分数排行。免费查阅,数据真实。{% endblock %}
-{% block canonical %}https://veridrop.org/leaderboard{% endblock %}
-{% block og_url %}https://veridrop.org/leaderboard{% endblock %}
+{% block og_description %}{{ summary.total_reports }} 份社区检测数据自动聚合,按贝叶斯加权排行。免费查阅,数据真实。{% endblock %}
+{% block canonical %}https://veridrop.org/leaderboard{% if page > 1 %}?page={{ page }}{% endif %}{% endblock %}
+{% block og_url %}https://veridrop.org/leaderboard{% if page > 1 %}?page={{ page }}{% endif %}{% endblock %}
 
 {% block head_extra %}
 <script type="application/ld+json">
@@ -24,11 +24,11 @@
 {
   "@context": "https://schema.org",
   "@type": "ItemList",
-  "name": "AI API 中转站质量排行",
-  "numberOfItems": {{ relays|length }},
+  "name": "AI API 中转站质量排行 · 主榜 Top 10",
+  "numberOfItems": {{ top_relays|length }},
   "itemListOrder": "https://schema.org/ItemListOrderDescending",
   "itemListElement": [
-    {%- for r in relays[:20] %}
+    {%- for r in top_relays %}
     {
       "@type": "ListItem",
       "position": {{ loop.index }},
@@ -41,91 +41,156 @@
 </script>
 {% endblock %}
 
+{% macro relay_row(r, rank_index) %}
+<article class="lb-row" id="{{ r.domain }}">
+  <div class="lb-rank">
+    {% if rank_index == 1 and r.is_ranked %}🥇
+    {% elif rank_index == 2 and r.is_ranked %}🥈
+    {% elif rank_index == 3 and r.is_ranked %}🥉
+    {% else %}<span class="lb-rank-num">{{ rank_index }}</span>{% endif %}
+  </div>
+  <div class="lb-main">
+    <h2 class="lb-domain">
+      <a href="/leaderboard/{{ r.domain }}" title="查看 {{ r.domain }} 全部检测历史">{{ r.domain }}</a>
+    </h2>
+    <p class="lb-meta">
+      <strong>{{ r.total_count }}</strong> 次检测 ·
+      <strong>{{ r.protocols_label }}</strong>
+      {% if r.last_checked %}
+        · 最近 {{ r.last_checked.strftime('%Y-%m-%d') }}
+      {% endif %}
+      {% if not r.is_ranked %}
+        · <span class="lb-badge-info">单次样本,仅供参考</span>
+      {% endif %}
+      · <a class="lb-detail-link" href="/leaderboard/{{ r.domain }}">查看完整历史 →</a>
+    </p>
+    <div class="lb-protocols">
+      {% for proto, ps in r.by_protocol.items() %}
+        {% set verdict_zh = verdict_labels.get(ps.last_verdict, ps.last_verdict) %}
+        {% set badge_class = 'ok' if ps.last_score >= 85 else ('good' if ps.last_score >= 70 else ('warn' if ps.last_score >= 50 else 'fail')) %}
+        <a class="lb-proto-chip lb-proto-{{ badge_class }}" href="/r/{{ ps.last_job_id }}" title="点击查看 {{ protocol_labels.get(proto, proto) }} 最新报告">
+          <span class="lb-proto-name">{{ protocol_labels.get(proto, proto) }}</span>
+          <span class="lb-proto-score">{{ "%.0f"|format(ps.last_score) }}</span>
+          <span class="lb-proto-verdict">{{ verdict_zh }}</span>
+          {% if ps.count > 1 %}
+            <span class="lb-proto-count">×{{ ps.count }}</span>
+          {% endif %}
+        </a>
+      {% endfor %}
+    </div>
+    {% set top_failed = [] %}
+    {% for ps in r.by_protocol.values() %}
+      {% for name, cnt in ps.failed_detectors.most_common(2) %}
+        {% set _ = top_failed.append((name, cnt)) %}
+      {% endfor %}
+    {% endfor %}
+    {% if top_failed %}
+      <p class="lb-issues">
+        常见问题:
+        {% for name, cnt in top_failed[:3] %}
+          <code>{{ name }}</code>{% if not loop.last %}、{% endif %}
+        {% endfor %}
+      </p>
+    {% endif %}
+  </div>
+  <div class="lb-score lb-score-{{ r.verdict_class }}">
+    <span class="lb-score-num">{{ "%.0f"|format(r.overall_median) }}</span>
+    <span class="lb-score-label">中位</span>
+  </div>
+</article>
+{% endmacro %}
+
 {% block content %}
 <section class="hub-hero">
   <h1>AI API 中转站红黑榜</h1>
   <p class="answer-capsule">
-    <strong>Veridrop</strong> 基于社区公开检测数据自动聚合,按 <strong>真实分数</strong> 排行 AI API 中转站质量。
-    数据来自 <strong>{{ summary.total_reports }}</strong> 份公开检测报告,共覆盖 <strong>{{ summary.total_relays }}</strong> 家中转站
-    ({{ summary.ranked_relays }} 家有 ≥2 次检测可参与正式排名)。<span class="hub-meta-inline">数据每 10 分钟刷新 · 点击任意行查看最新检测报告 · 想给中转站做检测?<a href="/">回首页</a></span>
+    <strong>Veridrop</strong> 基于社区公开检测数据自动聚合,按
+    <strong>贝叶斯加权评分</strong>排行 AI API 中转站质量(测试越多 + 分数越稳定 → 排名越前)。
+    数据来自 <strong>{{ summary.total_reports }}</strong> 份公开检测报告,共覆盖
+    <strong>{{ summary.total_relays }}</strong> 家中转站
+    ({{ summary.ranked_relays }} 家有 ≥2 次检测可参与正式排名)。
+    <span class="hub-meta-inline">数据每 10 分钟刷新 · 想给中转站做检测?<a href="/">回首页</a></span>
   </p>
 </section>
 
-{% if not relays %}
+{% if not top_relays and not has_rest %}
 <section class="hub-note">
   <p>暂无检测数据。<a href="/">去做第一次检测 →</a></p>
 </section>
 {% else %}
+
+{# ───── 主榜 Top 10 ───── #}
+{% if top_relays %}
+<section class="lb-section-heading">
+  <h2>🏆 主榜 Top {{ top_relays|length }}</h2>
+  <p class="muted small">按贝叶斯加权评分排序 — 测试越多次的中转站,分数越能反映真实能力</p>
+</section>
 <section class="leaderboard-list">
-  {% for r in relays %}
-  {% set best = r.by_protocol.values()|list %}
-  <article class="lb-row" id="{{ r.domain }}">
-    <div class="lb-rank">
-      {% if loop.index == 1 and r.is_ranked %}🥇
-      {% elif loop.index == 2 and r.is_ranked %}🥈
-      {% elif loop.index == 3 and r.is_ranked %}🥉
-      {% else %}<span class="lb-rank-num">{{ loop.index }}</span>{% endif %}
-    </div>
-    <div class="lb-main">
-      <h2 class="lb-domain">
-        <a href="/leaderboard/{{ r.domain }}" title="查看 {{ r.domain }} 全部检测历史">{{ r.domain }}</a>
-      </h2>
-      <p class="lb-meta">
-        <strong>{{ r.total_count }}</strong> 次检测 ·
-        <strong>{{ r.protocols_label }}</strong>
-        {% if r.last_checked %}
-          · 最近 {{ r.last_checked.strftime('%Y-%m-%d') }}
-        {% endif %}
-        {% if not r.is_ranked %}
-          · <span class="lb-badge-info">单次样本,仅供参考</span>
-        {% endif %}
-        · <a class="lb-detail-link" href="/leaderboard/{{ r.domain }}">查看完整历史 →</a>
-      </p>
-      <div class="lb-protocols">
-        {% for proto, ps in r.by_protocol.items() %}
-          {% set verdict_zh = verdict_labels.get(ps.last_verdict, ps.last_verdict) %}
-          {% set badge_class = 'ok' if ps.last_score >= 85 else ('good' if ps.last_score >= 70 else ('warn' if ps.last_score >= 50 else 'fail')) %}
-          <a class="lb-proto-chip lb-proto-{{ badge_class }}" href="/r/{{ ps.last_job_id }}" title="点击查看 {{ protocol_labels.get(proto, proto) }} 最新报告">
-            <span class="lb-proto-name">{{ protocol_labels.get(proto, proto) }}</span>
-            <span class="lb-proto-score">{{ "%.0f"|format(ps.last_score) }}</span>
-            <span class="lb-proto-verdict">{{ verdict_zh }}</span>
-            {% if ps.count > 1 %}
-              <span class="lb-proto-count">×{{ ps.count }}</span>
-            {% endif %}
-          </a>
-        {% endfor %}
-      </div>
-      {% set top_failed = [] %}
-      {% for ps in r.by_protocol.values() %}
-        {% for name, cnt in ps.failed_detectors.most_common(2) %}
-          {% set _ = top_failed.append((name, cnt)) %}
-        {% endfor %}
-      {% endfor %}
-      {% if top_failed %}
-        <p class="lb-issues">
-          常见问题:
-          {% for name, cnt in top_failed[:3] %}
-            <code>{{ name }}</code>{% if not loop.last %}、{% endif %}
-          {% endfor %}
-        </p>
-      {% endif %}
-    </div>
-    <div class="lb-score lb-score-{{ r.verdict_class }}">
-      <span class="lb-score-num">{{ "%.0f"|format(r.overall_median) }}</span>
-      <span class="lb-score-label">中位</span>
-    </div>
-  </article>
+  {% for r in top_relays %}
+    {{ relay_row(r, loop.index) }}
   {% endfor %}
 </section>
+{% endif %}
+
+{# ───── 全部列表(分页)───── #}
+{% if has_rest %}
+<section class="lb-section-heading">
+  <h2>全部中转站</h2>
+  <p class="muted small">共 {{ summary.total_relays }} 家,当前第 {{ page }} / {{ total_pages }} 页</p>
+</section>
+{% if rest_relays %}
+<section class="leaderboard-list">
+  {% for r in rest_relays %}
+    {{ relay_row(r, rest_start_rank + loop.index0) }}
+  {% endfor %}
+</section>
+
+{# Pagination controls #}
+{% if total_pages > 1 %}
+<nav class="lb-pagination" aria-label="分页">
+  {% if page > 1 %}
+    <a class="lb-page-btn" href="?page={{ page - 1 }}">← 上一页</a>
+  {% else %}
+    <span class="lb-page-btn lb-page-disabled">← 上一页</span>
+  {% endif %}
+
+  {# Page numbers — show all if ≤7, else current ±2 with ellipsis #}
+  {% set window = 2 %}
+  {% for p in range(1, total_pages + 1) %}
+    {% if p == 1 or p == total_pages or (p >= page - window and p <= page + window) %}
+      {% if p == page %}
+        <span class="lb-page-btn lb-page-current">{{ p }}</span>
+      {% else %}
+        <a class="lb-page-btn" href="?page={{ p }}">{{ p }}</a>
+      {% endif %}
+    {% elif p == page - window - 1 or p == page + window + 1 %}
+      <span class="lb-page-ellipsis">…</span>
+    {% endif %}
+  {% endfor %}
+
+  {% if page < total_pages %}
+    <a class="lb-page-btn" href="?page={{ page + 1 }}">下一页 →</a>
+  {% else %}
+    <span class="lb-page-btn lb-page-disabled">下一页 →</span>
+  {% endif %}
+</nav>
+{% endif %}
+{% endif %}
+{% endif %}
+
 {% endif %}
 
 <section class="hub-note">
   <h2>红黑榜怎么算的?</h2>
   <p>
-    每份 <code>/r/{job_id}</code> 公开报告自动汇入此榜。按 <strong>base_url 域名</strong>分组,
-    多次检测取<strong>中位数</strong>作为排名依据(避免极端值干扰)。≥ 2 次检测才进入正式排名。
-    单次检测可见但标注「仅供参考」。最近一次检测的 verdict 决定每个协议的颜色徽章。
-    数据公开透明,可点击任意协议徽章查看具体报告。
+    每份 <code>/r/{job_id}</code> 公开报告自动汇入此榜,按 <strong>base_url 域名</strong>分组。
+    排名使用 <strong>贝叶斯加权评分</strong>(prior=50,prior_weight=5):
+    一次满分 100 的中转站排名分仅 58.3,需要测 ≥10 次稳定接近满分才能升到主榜前列。
+    这避免了"新中转站随机跑一次拿满分就霸榜"的问题,真正经得起多次检验的中转站排前。
+    UI 显示的"中位"是历次分数的中位数(给用户直观参考),排序按贝叶斯加权。
+  </p>
+  <p class="small muted">
+    单次检测的中转站不进入主榜(避免噪声),仍然在全部列表底部可见。
   </p>
 </section>
 {% endblock %}
