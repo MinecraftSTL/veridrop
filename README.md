@@ -369,6 +369,31 @@ Veridrop 在两个 GitHub 仓库间运作:
 
 提交 issue / PR / fork 都请去 [canarybyte/veridrop](https://github.com/canarybyte/veridrop)。
 
+### 维护者:双仓库推送
+
+仓库维护者本地有两个 git remote:
+
+```bash
+git remote -v
+# full-check  git@github.com:tuofangzhe/veridrop-full-check.git  (private)
+# public      git@github-canarybyte:canarybyte/veridrop.git      (public OSS)
+```
+
+**OSS 安全提交**(代码、文档、UI、测试)用脚本一键推两边:
+
+```bash
+./scripts/push-both.sh           # 推 main 到两个 remote
+./scripts/push-both.sh -n        # 干跑,不真推
+```
+
+**私有提交**(以后的商业代码:佣金、广告、企业版)只推 private:
+
+```bash
+git push full-check main
+```
+
+判断标准:**任何涉及评分逻辑、检测器、API key 处理、前端页面的提交都该开源**(信任路径)。涉及佣金跟踪、广告投放、商业关系的提交才闭源。
+
 ## 为什么开源
 
 Veridrop 的核心交易是「你把 API key 给我,我帮你测中转站真假」。这件事的基础是**信任**:
