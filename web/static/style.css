@@ -100,6 +100,34 @@ code {
 .site-nav a:hover::after,
 .site-nav a:focus-visible::after { transform: scaleX(1); }
 
+/* GitHub button in nav — pill-shaped chip with the official mark + label.
+ * Stronger visual weight than text links so it reads as "primary external
+ * action" without needing a real CTA button (which would compete with
+ * the page's actual CTA). Underline animation suppressed since the chip
+ * has its own border. */
+.nav-github {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text) !important;
+  font-weight: 500;
+  font-size: 13px;
+  margin-left: 6px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.nav-github:hover {
+  background: var(--bg-soft);
+  border-color: var(--text);
+  text-decoration: none;
+}
+.nav-github svg {
+  flex-shrink: 0;
+}
+.nav-github::after { display: none !important; }  /* suppress nav underline */
+
 /* Hamburger button — hidden on desktop, shown on mobile. */
 .nav-toggle {
   display: none;
@@ -161,6 +189,227 @@ code {
 }
 .site-footer p.muted.small {
   margin-top: 8px;
+}
+
+/* Footer multi-column layout — replaces the single centered paragraph
+ * with a grid of {tagline + GitHub button | 项目 | 工具 | 资源}.
+ * Designed for an SEO-friendly internal-link cluster footer (every
+ * deep-link reachable from any page) without becoming a wall of text. */
+.footer-grid {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 28px 24px 12px;
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr 1fr;
+  gap: 32px;
+  text-align: left;
+  box-sizing: border-box;
+}
+.footer-col h4 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.footer-col ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.footer-col li { margin: 6px 0; }
+.footer-col a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13px;
+}
+.footer-col a:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+.footer-tagline {
+  margin: 0 0 8px;
+  color: var(--text);
+  font-size: 14px;
+}
+.footer-tagline strong { color: var(--green-dark, #047857); }
+.footer-desc {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  max-width: 320px;
+}
+/* GitHub chip in footer tagline column — same shape as nav-github
+ * but slightly bigger so it reads as a secondary CTA at footer level. */
+.footer-github-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", monospace;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+.footer-github-btn:hover {
+  background: var(--bg-soft);
+  border-color: var(--text);
+  text-decoration: none;
+}
+.footer-copyright {
+  text-align: center;
+  margin: 8px 0 0;
+  padding: 0 24px;
+}
+@media (max-width: 720px) {
+  .footer-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 24px 32px;
+  }
+  .footer-col-tagline {
+    grid-column: 1 / -1;  /* tagline + GitHub btn span both columns */
+  }
+}
+
+/* ============================== Trust Strip ==============================
+ * Hub homepage section right below the hero capsule. The whole strip
+ * exists because Veridrop's product premise is "hand us your API key" —
+ * users won't do that without proof of trust. We give 3 cards of
+ * concrete promises, each linking into the actual code that proves it.
+ * Visual weight is intentionally heavy: subtle gradient bg + clear
+ * heading anchor + GitHub CTA at the bottom. */
+.trust-strip {
+  margin: 32px 0 40px;
+  padding: 28px 28px 24px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: linear-gradient(135deg,
+    rgba(16, 185, 129, 0.04) 0%,
+    rgba(16, 185, 129, 0.01) 60%,
+    var(--bg) 100%);
+}
+.trust-strip-head {
+  text-align: center;
+  margin-bottom: 24px;
+}
+.trust-strip-head h2 {
+  font-size: 22px;
+  margin: 0 0 8px;
+  letter-spacing: -0.01em;
+}
+.trust-strip-head p {
+  margin: 0 auto;
+  max-width: 720px;
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.7;
+}
+.trust-strip-head p strong { color: var(--text); }
+
+.trust-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-bottom: 24px;
+}
+.trust-card {
+  padding: 18px 18px 16px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+}
+.trust-icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+  line-height: 1;
+}
+.trust-card h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  letter-spacing: -0.005em;
+  line-height: 1.3;
+}
+.trust-card h3 em {
+  font-style: normal;
+  font-weight: 500;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+.trust-card p {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.65;
+  flex: 1;
+}
+.trust-card code {
+  font-size: 11.5px;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.trust-link {
+  font-size: 12.5px;
+  color: var(--green-dark, #047857);
+  text-decoration: none;
+  font-weight: 500;
+  margin-top: auto;
+}
+.trust-link:hover { text-decoration: underline; }
+
+.trust-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+}
+/* GitHub-styled "primary" button — recognizable mono font + dark bg
+ * matches what users expect on a GitHub-link CTA. Different from the
+ * green primary CTA on detect pages so they don't compete visually. */
+.btn-github {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: #1f2328;
+  color: white;
+  border: 1px solid #1f2328;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", monospace;
+  text-decoration: none;
+  transition: background 0.15s, transform 0.1s;
+}
+.btn-github:hover {
+  background: #34383d;
+  border-color: #34383d;
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+.trust-license-pill {
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", monospace;
+  color: var(--muted);
+  padding: 6px 12px;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+@media (max-width: 760px) {
+  .trust-cards { grid-template-columns: 1fr; }
+  .trust-strip { padding: 22px 18px 18px; }
+  .trust-strip-head h2 { font-size: 19px; }
 }
 
 /* hero */

@@ -96,8 +96,65 @@
     还是被中转站偷偷换成了别的便宜模型。无需注册、API key 不留存、代码开源。
   </p>
   <p class="hub-meta">
-    已检测 <strong>3 个</strong>协议 · <strong>11 项</strong>独立维度 · <strong>30-75 秒</strong>出报告 · 报告 URL 永久可分享
+    已检测 <strong>3 个</strong>协议 · <strong>12 项</strong>独立维度 · <strong>30-75 秒</strong>出报告 · 报告 URL 永久可分享
   </p>
+</section>
+
+<!-- ============================== Trust Strip ============================== -->
+<section class="trust-strip" aria-label="开源与信任">
+  <div class="trust-strip-head">
+    <h2>🔓 100% 开源 · 评分算法可逐行审计</h2>
+    <p>
+      Veridrop 的本质是「<strong>把 API key 交给我们检测中转站</strong>」 — 这件事的基础是<strong>信任</strong>。
+      所以我们把所有评分逻辑、key 处理代码全部公开,任何人可以审计。这是闭源工具永远做不到的承诺。
+    </p>
+  </div>
+
+  <div class="trust-cards">
+    <article class="trust-card">
+      <div class="trust-icon">📜</div>
+      <h3>评分算法公开</h3>
+      <p>
+        12 项 detector 怎么打分、贝叶斯排名公式、tokenizer 校准 — 全在 GitHub,无黑盒。
+        中转站推荐(以后做)永远不会偷偷加权。
+      </p>
+      <a href="https://github.com/canarybyte/veridrop/tree/main/src/relay_detector"
+        target="_blank" rel="noopener" class="trust-link">查看检测器源码 →</a>
+    </article>
+
+    <article class="trust-card">
+      <div class="trust-icon">🔐</div>
+      <h3>API key 不落盘<br><em>可代码证明</em></h3>
+      <p>
+        SECURITY.md 列出每条 key 处理承诺,每条都标了代码位置 — 你可以
+        <code>grep</code> 验证。不是"我们说不偷",是"代码不让偷"。
+      </p>
+      <a href="https://github.com/canarybyte/veridrop/blob/main/SECURITY.md"
+        target="_blank" rel="noopener" class="trust-link">查看安全策略 →</a>
+    </article>
+
+    <article class="trust-card">
+      <div class="trust-icon">⚙️</div>
+      <h3>支持完全自托管</h3>
+      <p>
+        不放心 SaaS?<code>git clone</code> 到自己机器跑,API key 永远不离开你的网络。
+        AGPL-3.0 许可证保证 fork 出去的修改也必须开源。
+      </p>
+      <a href="https://github.com/canarybyte/veridrop#readme"
+        target="_blank" rel="noopener" class="trust-link">自托管指南 →</a>
+    </article>
+  </div>
+
+  <div class="trust-cta">
+    <a class="btn btn-github" href="https://github.com/canarybyte/veridrop"
+      target="_blank" rel="noopener">
+      <svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor" aria-hidden="true">
+        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+      </svg>
+      <span>在 GitHub 查看源码 · canarybyte/veridrop</span>
+    </a>
+    <span class="trust-license-pill">License · AGPL-3.0</span>
+  </div>
 </section>
 
 <section class="protocol-grid">
