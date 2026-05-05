@@ -447,3 +447,46 @@
     }
   });
 })();
+
+// FAQ dual-mode toggle (通俗 / 开发者).
+// Two <p data-mode="layperson|developer"> per question are both in DOM
+// (so search engines index both); CSS hides whichever doesn't match the
+// section's data-mode. Choice persists in localStorage so the user
+// doesn't have to re-toggle every visit.
+(() => {
+  const STORAGE_KEY = 'veridrop_faq_mode';
+  const sections = document.querySelectorAll('.faq[data-mode]');
+  if (!sections.length) return;
+
+  // Restore saved preference (if any) before any clicks.
+  const saved = (() => {
+    try { return localStorage.getItem(STORAGE_KEY); } catch { return null; }
+  })();
+  if (saved === 'layperson' || saved === 'developer') {
+    sections.forEach((sec) => {
+      sec.dataset.mode = saved;
+      sec.querySelectorAll('.faq-mode-btn').forEach((b) => {
+        const active = b.dataset.mode === saved;
+        b.classList.toggle('faq-mode-active', active);
+        b.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+    });
+  }
+
+  // Click handler: switch mode + persist.
+  sections.forEach((sec) => {
+    sec.querySelectorAll('.faq-mode-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const mode = btn.dataset.mode;
+        if (!mode) return;
+        sec.dataset.mode = mode;
+        sec.querySelectorAll('.faq-mode-btn').forEach((b) => {
+          const active = b === btn;
+          b.classList.toggle('faq-mode-active', active);
+          b.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        try { localStorage.setItem(STORAGE_KEY, mode); } catch { /* ignore */ }
+      });
+    });
+  });
+})();

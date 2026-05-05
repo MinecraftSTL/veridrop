@@ -1122,9 +1122,55 @@ code {
 /* FAQ */
 .faq { margin-top: 48px; }
 .faq h2 {
-  font-size: 24px; margin: 0 0 20px;
+  font-size: 24px;
   letter-spacing: -0.01em;
 }
+
+/* FAQ header — title row + dual-mode toggle (通俗 / 开发者).
+   Two answers per question (data-mode="layperson|developer"); CSS hides
+   the inactive mode based on the parent .faq's data-mode attribute. JS
+   in app.js flips the attribute and persists the choice in localStorage. */
+.faq-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 20px;
+}
+.faq-header h2 { margin: 0; }
+.faq-mode-toggle {
+  display: inline-flex;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 3px;
+}
+.faq-mode-btn {
+  background: transparent;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--muted);
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s;
+}
+.faq-mode-btn:hover { color: var(--text); }
+.faq-mode-active {
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* Mode-specific answer visibility — by default both <p data-mode> are in
+   DOM (so search engines see both); CSS hides whichever doesn't match
+   the active mode. */
+.faq[data-mode="layperson"] [data-mode="developer"] { display: none; }
+.faq[data-mode="developer"] [data-mode="layperson"] { display: none; }
 .faq-item {
   background: var(--bg);
   border: 1px solid var(--line);
