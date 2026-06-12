@@ -1,30 +1,30 @@
-name: 🐛 Bug report
-description: Veridrop reported something wrong, or behaved unexpectedly
-title: "[Bug] "
+name: 🐛 问题反馈
+description: Veridrop 检测结果异常、页面异常或行为不符合预期
+title: "[问题] "
 labels: [bug, triage]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting! The single most useful thing you can give us is the
-        **/r/{job_id} URL** if you ran on veridrop.org — it captures the full state.
+        感谢反馈。最有帮助的信息是 veridrop.org 生成的 **/r/{job_id} 报告链接**,
+        它能让我们复核完整字段证据。请不要粘贴未脱敏的 API key。
 
   - type: textarea
     id: what-happened
     attributes:
-      label: What happened?
-      description: What did Veridrop report, vs. what you expected?
+      label: 发生了什么?
+      description: Veridrop 的结果是什么? 你预期的结果是什么?
       placeholder: |
-        I sent api-key=sk-xxx, model=claude-sonnet-4-6, base_url=https://my-relay.com
-        Veridrop reported `long_context: fail`, but I'm pretty sure my relay does support it.
+        我检测的模型是 claude-sonnet-4-6,base_url 是 https://example.com
+        Veridrop 报告 `long_context: fail`,但我认为这个中转站应该支持长上下文。
     validations:
       required: true
 
   - type: input
     id: report-url
     attributes:
-      label: Report URL (most useful!)
-      description: Paste the `https://veridrop.org/r/{job_id}` URL if you ran on the hosted service
+      label: 检测报告 URL(最有帮助)
+      description: 如果你使用的是线上版,请粘贴 `https://veridrop.org/r/{job_id}` 链接
       placeholder: https://veridrop.org/r/abc12345
     validations:
       required: false
@@ -32,28 +32,28 @@ body:
   - type: dropdown
     id: protocol
     attributes:
-      label: Which protocol?
+      label: 哪个协议?
       options:
-        - Anthropic (Claude)
+        - Anthropic / Claude
         - OpenAI (GPT)
         - Gemini
-        - Other
+        - 其他
     validations:
       required: true
 
   - type: input
     id: model
     attributes:
-      label: Model tested
+      label: 检测模型
       placeholder: claude-haiku-4-5, gpt-4o-mini, gemini-2.5-flash, ...
 
   - type: dropdown
     id: where
     attributes:
-      label: Where did you run?
+      label: 你在哪里运行?
       options:
-        - Hosted service (veridrop.org)
-        - Self-hosted (this repo)
+        - 线上服务 veridrop.org
+        - 自托管部署
         - CLI (./venv/bin/relay-detector)
     validations:
       required: true
@@ -61,18 +61,18 @@ body:
   - type: textarea
     id: extra
     attributes:
-      label: Anything else
-      description: Logs, screenshots, JSON snippets, hypothesis about what's wrong
+      label: 其他补充
+      description: 可以补充日志、截图、JSON 片段或你的判断
       placeholder: |
-        Attach the full report.json if running locally:
+        如果你是本地运行,可以附上脱敏后的 report.json:
           ./venv/bin/relay-detector detect ... -o report.json
 
   - type: checkboxes
     id: terms
     attributes:
-      label: Pre-flight
+      label: 提交前确认
       options:
-        - label: I redacted my API key from any logs / JSON I'm pasting
+        - label: 我已经从日志 / JSON / 截图中移除了 API key
           required: true
-        - label: I searched existing issues for a similar report
+        - label: 我已经搜索过现有 issues,没有找到相同问题
           required: true

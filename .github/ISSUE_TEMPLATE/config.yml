@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
-  - name: 🌐 Try Veridrop live
+  - name: 🌐 在线使用 Veridrop
     url: https://veridrop.org
-    about: "Quick test: type your relay's URL + key, get a report in 30s. Free, no signup."
-  - name: 🔒 Security vulnerability
+    about: "输入中转站 URL、API key 和模型名,约 30 秒生成检测报告。免费,无需注册。"
+  - name: 🔒 安全漏洞私密报告
     url: https://github.com/canarybyte/veridrop/security/advisories/new
-    about: "Found a way to leak API keys or bypass detection? Use private disclosure."
-  - name: 📖 Documentation / FAQ
+    about: "如果发现 API key 泄露风险、检测绕过或其他安全问题,请使用私密披露。"
+  - name: 📖 文档 / 常见问题
     url: https://veridrop.org/faq
-    about: "35+ Q&As about AI relay testing, authenticity verification, privacy."
+    about: "查看中转站检测、真伪验证、隐私安全和评分规则说明。"

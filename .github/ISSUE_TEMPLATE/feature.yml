@@ -1,51 +1,50 @@
-name: 💡 Feature request / new detector
-description: Propose a new check, protocol, or capability
-title: "[Feature] "
+name: 💡 功能建议 / 新检测项
+description: 提议新的检测项、协议支持或能力验证
+title: "[建议] "
 labels: [enhancement]
 body:
   - type: textarea
     id: problem
     attributes:
-      label: What problem does this solve?
-      description: Describe the relay behavior or user pain point this would address
+      label: 这个建议解决什么问题?
+      description: 请描述你遇到的中转站行为、检测盲区或用户痛点
       placeholder: |
-        Example: relays sometimes strip prompt caching (cache_control). Today we
-        don't detect this — users pay full price for cacheable content because
-        their relay silently drops the cache_creation_input_tokens field.
+        例如:有些中转站会剥离 prompt caching(cache_control)。
+        现在如果没有检测这个能力,用户可能以为缓存生效,实际仍按完整输入计费。
     validations:
       required: true
 
   - type: textarea
     id: proposal
     attributes:
-      label: Proposed approach
-      description: Sketch the detector or feature. Don't worry about being right — we'll discuss.
+      label: 你建议怎么做?
+      description: 可以粗略描述检测思路或页面功能,不需要一次写对
       placeholder: |
-        Add a `cache_control` detector that:
-        1. Sends a request with cache_control: ephemeral
-        2. Sends the same request again
-        3. Verifies usage.cache_read_input_tokens > 0 on the second call
-        4. Reports fail if cache is silently stripped
+        增加一个 `cache_control` 检测项:
+        1. 发送带 cache_control: ephemeral 的请求
+        2. 再发送一次相同请求
+        3. 检查第二次 usage.cache_read_input_tokens 是否大于 0
+        4. 如果缓存字段被剥离,判定为 fail
 
   - type: dropdown
     id: kind
     attributes:
-      label: Type of contribution
+      label: 建议类型
       options:
-        - New detector
-        - New protocol (Bedrock / Vertex / etc.)
-        - Web UI improvement
-        - CLI improvement
-        - Documentation
-        - Other
+        - 新检测项
+        - 新协议支持(Bedrock / Vertex / 其他)
+        - Web 页面改进
+        - CLI 改进
+        - 文档改进
+        - 其他
     validations:
       required: true
 
   - type: dropdown
     id: implement
     attributes:
-      label: Are you offering to implement?
+      label: 你是否愿意实现?
       options:
-        - "Yes, I'll send a PR"
-        - "Maybe — happy to discuss"
-        - "No, just suggesting"
+        - "愿意,我可以提交 PR"
+        - "可以讨论后再决定"
+        - "暂时只是建议"

@@ -3,30 +3,20 @@
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Tests](https://github.com/canarybyte/veridrop/actions/workflows/test.yml/badge.svg)](https://github.com/canarybyte/veridrop/actions/workflows/test.yml)
-[![Live demo](https://img.shields.io/badge/demo-veridrop.org-10b981.svg)](https://veridrop.org)
+[![在线服务](https://img.shields.io/badge/%E5%9C%A8%E7%BA%BF%E6%9C%8D%E5%8A%A1-veridrop.org-10b981.svg)](https://veridrop.org)
 
 **在线使用(无需克隆代码)**:[veridrop.org](https://veridrop.org) · 协议页直达:[Claude 中转站检测](https://veridrop.org/claude) · [OpenAI 中转站检测](https://veridrop.org/openai) · [Gemini 中转站检测](https://veridrop.org/gemini) · [中转站红黑榜](https://veridrop.org/leaderboard) · [常见问题 FAQ](https://veridrop.org/faq)
 
-> **TL;DR (English)**: Open-source authenticity & quality detector for AI API relays
-> (proxies). Given `base_url + api_key + model`, Veridrop runs probes against the relay,
-> compares results to a known-good baseline, and answers three questions:
+> **Veridrop 是开源的 AI API 中转站真伪检测工具。**
+> 输入 `base_url + api_key + model`,它会自动探测中转站是否真的转发到宣称的 Claude / OpenAI / Gemini 模型,
+> 是否剥离了 PDF、Tool Use、Thinking、Function Calling、长上下文等关键能力,
+> 以及响应字段、流式协议、usage 计费字段是否符合官方规范。
 >
-> 1. **Authenticity** — is the relay actually serving the Claude / GPT / Gemini model
->    it claims? (uses **Claude thinking signature** crypto verification, the only
->    cryptographic-grade authenticity check in this category)
-> 2. **Capability** — has the relay stripped PDF / Tool Use / Thinking / Function
->    Calling support?
-> 3. **Compliance** — do response fields, ID prefixes, streaming events, and usage
->    accounting match the official protocol?
+> 线上版在 [veridrop.org](https://veridrop.org),无需注册,API key 不落盘。
+> 也可以自托管运行,完整检测逻辑、评分权重和字段证据都在本仓库公开。
 >
-> Bonus: **needle-in-haystack long-context probing** (32k → 1M tokens) catches
-> relays that advertise 1M context but silently truncate at 200k.
->
-> Live demo at **[veridrop.org](https://veridrop.org)** — no sign-up, API key
-> never persisted. Self-host with one `docker compose up` (see below).
->
-> ⭐ If you've ever been burned by a fake relay, **star this repo** so others
-> can find it.
+> ⭐ 如果 Veridrop 帮你识别过假中转、避过坑,欢迎给这个仓库点个 Star。
+> Star 会让更多开发者和站长看到这个开源检测工具,也支持「评分独立、证据公开、付费不改分」的透明检测生态。
 
 ---
 
@@ -39,6 +29,18 @@
 支持三大协议:**Anthropic Messages API**、**OpenAI Chat Completions**、**Gemini OpenAI 兼容 API**。
 
 线上服务:[veridrop.org](https://veridrop.org)(免费、无需注册、API key 不落盘)
+
+---
+
+## 支持 Veridrop
+
+Veridrop 的检测算法、评分逻辑和报告证据保持开源透明。你可以用两种方式支持项目继续维护:
+
+1. **给 GitHub 仓库点 Star**:让更多中文开发者和站长找到这个项目。
+2. **商务合作 / 认证收录**:见 [Veridrop 商务合作](https://veridrop.org/business)。
+
+> 合作不会改变检测分数、verdict、critical 严重问题或排行榜算法。
+> Veridrop 的价值来自公开证据,不是人工背书。
 
 ---
 
@@ -428,7 +430,7 @@ A: 当前覆盖 Anthropic Messages API、OpenAI Chat Completions、Gemini OpenAI
 - ✅ 自托管研究、学术使用:随便,免费
 - ⚠️ **作为公开 SaaS 运行**(给第三方提供服务):**必须把你的修改也开源**(AGPL §13 网络条款)
 
-如需商业不开源授权,联系 [veridrop.org](https://veridrop.org)。
+如需商业不开源授权、认证收录或赞助合作,见 [商务合作](https://veridrop.org/business)。
 
 ## 贡献
 
