@@ -58,6 +58,38 @@ async def test_messages_create_strips_temperature_for_opus_4_7():
 
 
 @pytest.mark.asyncio
+async def test_messages_create_strips_temperature_for_opus_4_8():
+    """Opus 4.8 rejects `temperature` (deprecated). Client must strip it."""
+    sample = {
+        "id": "msg_x", "type": "message", "role": "assistant",
+        "model": "claude-opus-4-8", "content": [],
+        "stop_reason": "end_turn", "stop_sequence": None,
+        "usage": {"input_tokens": 1, "output_tokens": 1},
+    }
+    captured: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        import json as _json
+        captured.append(_json.loads(request.content))
+        return httpx.Response(200, json=sample)
+
+    async with respx.mock(base_url=BASE_URL) as router:
+        router.post("/v1/messages").mock(side_effect=handler)
+        async with AnthropicClient(BASE_URL, "sk-test") as client:
+            await client.messages_create(
+                model="claude-opus-4-8",
+                max_tokens=10,
+                temperature=0,
+                messages=[{"role": "user", "content": "x"}],
+            )
+    assert len(captured) == 1
+    sent = captured[0]
+    assert "temperature" not in sent, "temperature must be stripped for Opus 4.8"
+    assert sent["model"] == "claude-opus-4-8"
+    assert sent["max_tokens"] == 10  # other fields untouched
+
+
+@pytest.mark.asyncio
 async def test_sanitize_body_tolerates_dotted_opus_4_7():
     """Users frequently type `claude-opus-4.7` (dotted) in the web form.
     The deprecation strip must still kick in — otherwise temperature leaks

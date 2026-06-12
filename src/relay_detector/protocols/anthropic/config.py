@@ -72,6 +72,19 @@ class ModelInfo:
 
 
 MODELS: dict[str, ModelInfo] = {
+    "claude-opus-4-8": ModelInfo(
+        alias="claude-opus-4-8",
+        aliases=("claude-opus-4-8",),
+        context_tokens=1_000_000,
+        max_output_tokens=128_000,
+        pdf_page_max=600,
+        # 与前一代 opus-4-7 一致:自适应思维(output_config.effort),
+        # 不走 extended(thinking.budget_tokens)。没这条 thinking_signature
+        # 对 4.8 会被 applies_to() 判 False 而跳过(皇冠级检测失灵)。
+        supports_extended_thinking=False,
+        supports_adaptive_thinking=True,
+        new_tokenizer=True,
+    ),
     "claude-opus-4-7": ModelInfo(
         alias="claude-opus-4-7",
         aliases=("claude-opus-4-7",),

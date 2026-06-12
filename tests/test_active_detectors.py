@@ -15,6 +15,9 @@ from relay_detector.detectors.knowledge import (
 )
 from relay_detector.detectors.thinking_signature import ThinkingSignatureDetector
 from relay_detector.detectors.token_usage import TokenUsageDetector
+from relay_detector.protocols.anthropic.detectors.behavioral_signature import (
+    _load_signatures,
+)
 from relay_detector.protocols.anthropic.detectors.token_usage import _delta_range
 from relay_detector.models import StreamEvent
 
@@ -28,6 +31,19 @@ def test_lookup_model_alias():
     assert info.alias == "claude-opus-4-7"
     assert info.supports_adaptive_thinking is True
     assert info.supports_extended_thinking is False
+
+
+def test_lookup_model_opus_4_8_registered():
+    """opus-4-8 必须在册且 thinking 支持开启,否则 thinking_signature
+    会对最新模型静默跳过(皇冠级检测失灵)。自适应思维,同 4-7。"""
+    info = lookup_model("claude-opus-4-8")
+    assert info is not None
+    assert info.alias == "claude-opus-4-8"
+    assert info.supports_adaptive_thinking is True
+    assert info.supports_extended_thinking is False
+    assert ThinkingSignatureDetector().applies_to("claude-opus-4-8") is True
+    assert lookup_model("claude-opus-4-8-20260515") is not None
+    assert lookup_model("claude-opus-4.8") is not None
 
 
 def test_lookup_model_snapshot():
@@ -196,6 +212,31 @@ def test_behavioral_evaluate_markdown_pattern():
     assert _evaluate("Just plain text.", sig) is False
 
 
+def _behavioral_signature(sig_id: str) -> dict:
+    return next(s for s in _load_signatures() if s["id"] == sig_id)
+
+
+def test_behavioral_refusal_helpfulness_tone_accepts_resume_fraud_refusal():
+    sig = _behavioral_signature("refusal_helpfulness_tone")
+    text = (
+        "I can't help you exaggerate junior work as senior-level ownership. "
+        "That would misrepresent your experience and could be resume fraud; "
+        "if caught, it could get you fired. I can help rewrite the bullets "
+        "accurately around scope, collaboration, and measurable impact."
+    )
+    assert _evaluate(text, sig) is True
+
+
+def test_behavioral_refusal_helpfulness_tone_rejects_fabricated_resume_bullets():
+    sig = _behavioral_signature("refusal_helpfulness_tone")
+    text = (
+        "Led enterprise architecture for a 40-person engineering organization. "
+        "Owned roadmap strategy, executive stakeholder alignment, and a "
+        "$5M platform modernization effort across multiple teams."
+    )
+    assert _evaluate(text, sig) is False
+
+
 # --- ThinkingSignatureDetector.applies_to ---------------------------------
 
 
@@ -256,6 +297,51 @@ def test_thinking_skip_unknown_model():
     d = ThinkingSignatureDetector()
     assert d.applies_to("gpt-4o") is False
     assert d.applies_to("some-random-model") is False
+
+
+class _ThinkingCaptureClient:
+    def __init__(self):
+        self.calls: list[dict] = []
+
+    async def messages_create(self, **body):
+        self.calls.append(body)
+        return (
+            body,
+            {
+                "content": [
+                    {
+                        "type": "thinking",
+                        "thinking": "scratch work",
+                        "signature": "s" * 80,
+                    },
+                    {"type": "text", "text": "The gcd is 7."},
+                ],
+                "stop_reason": "end_turn",
+            },
+            {},
+            0,
+        )
+
+
+async def test_thinking_adaptive_opus_47_and_48_use_xhigh_effort():
+    for model in ("claude-opus-4-7", "claude-opus-4-8"):
+        client = _ThinkingCaptureClient()
+        result = await ThinkingSignatureDetector().run(client, model)
+        assert result.status == "pass"
+        sent = client.calls[0]
+        assert sent["thinking"] == {"type": "adaptive", "display": "summarized"}
+        assert sent["output_config"] == {"effort": "xhigh"}
+        assert result.details["output_config_sent"] == {"effort": "xhigh"}
+
+
+async def test_thinking_extended_models_do_not_send_output_config():
+    client = _ThinkingCaptureClient()
+    result = await ThinkingSignatureDetector().run(client, "claude-opus-4-6")
+    assert result.status == "pass"
+    sent = client.calls[0]
+    assert sent["thinking"] == {"type": "enabled", "budget_tokens": 2000}
+    assert "output_config" not in sent
+    assert result.details["output_config_sent"] is None
 
 
 # --- PDFDetector data plumbing --------------------------------------------
@@ -364,3 +450,4 @@ def test_token_usage_detector_uses_wider_delta_for_opus_47_tokenizer():
     assert _delta_range("claude-sonnet-4-6") == (45, 140)
     lo, hi = _delta_range("claude-opus-4-7")
     assert lo <= 166 <= hi
+    assert _delta_range("claude-opus-4-8") == (lo, hi)
