@@ -20,11 +20,13 @@ from typing import Any
 from urllib.parse import urlparse
 
 
+from .jobs import JOBS_DIR
+
 REPORT_DIRS = [
-    Path("/opt/veridrop/web_data/jobs/anthropic"),
-    Path("/opt/veridrop/web_data/jobs/openai"),
-    Path("/opt/veridrop/web_data/jobs/gemini"),
-    Path("/opt/veridrop/web_data/jobs"),  # legacy top-level
+    JOBS_DIR / "anthropic",
+    JOBS_DIR / "openai",
+    JOBS_DIR / "gemini",
+    JOBS_DIR,  # legacy top-level
 ]
 
 PROTOCOL_LABELS = {"anthropic": "Claude", "openai": "OpenAI", "gemini": "Gemini"}

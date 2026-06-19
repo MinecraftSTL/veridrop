@@ -37,11 +37,21 @@ from relay_detector.scorer import (
 
 JobStatus = Literal["queued", "running", "done", "error"]
 
-# Production default; override via VERIDROP_JOBS_DIR in tests / dev so the
-# import doesn't try to mkdir into /opt/veridrop on a developer laptop.
-JOBS_DIR = Path(
-    os.environ.get("VERIDROP_JOBS_DIR", "/opt/veridrop/web_data/jobs")
-)
+# Data root resolves in this order so the same code runs in prod, container,
+# and dev without a hardcoded /opt path the process may not own:
+#   1. VERIDROP_JOBS_DIR — explicit jobs dir override
+#   2. VERIDROP_DATA_DIR/jobs — data root override
+#   3. <repo>/web_data/jobs — alongside the code, always writable
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _default_data_dir() -> Path:
+    env = os.environ.get("VERIDROP_DATA_DIR")
+    return Path(env) if env else _REPO_ROOT / "web_data"
+
+
+DATA_DIR = _default_data_dir()
+JOBS_DIR = Path(os.environ.get("VERIDROP_JOBS_DIR", str(DATA_DIR / "jobs")))
 JOBS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Cap concurrent detections so a flood of submissions doesn't exhaust file

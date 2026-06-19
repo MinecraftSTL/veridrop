@@ -36,6 +36,16 @@ app = FastAPI(title="Veridrop", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 
+# Single source of truth for the site name and favicon. Change these in one
+# place to update every page. FAVICON_PATH points at a file under web/static/;
+# replace that file to change the icon (SVG recommended; if raster, use 32x32
+# or larger square PNG/ICO).
+SITE_NAME = "Veridrop"
+FAVICON_PATH = "/static/favicon.svg"
+templates.env.globals["SITE_NAME"] = SITE_NAME
+templates.env.globals["FAVICON_PATH"] = FAVICON_PATH
+
+
 
 @app.middleware("http")
 async def no_html_cache(request: Request, call_next):
@@ -60,7 +70,7 @@ _VALID_MODES = {"quick", "standard", "full"}
 _VALID_WISHLIST_PROTOCOLS = {"openai", "gemini"}
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 WISHLIST_PATH = Path(
-    os.environ.get("VERIDROP_WISHLIST_PATH", "/opt/veridrop/web_data/wishlist.txt")
+    os.environ.get("VERIDROP_WISHLIST_PATH", str(jobs.DATA_DIR / "wishlist.txt"))
 )
 
 
@@ -679,10 +689,10 @@ _STATIC_SITEMAP_URLS = [
 ]
 
 _SITEMAP_REPORT_DIRS = [
-    Path("/opt/veridrop/web_data/jobs/anthropic"),
-    Path("/opt/veridrop/web_data/jobs/openai"),
-    Path("/opt/veridrop/web_data/jobs/gemini"),
-    Path("/opt/veridrop/web_data/jobs"),  # legacy top-level
+    jobs.JOBS_DIR / "anthropic",
+    jobs.JOBS_DIR / "openai",
+    jobs.JOBS_DIR / "gemini",
+    jobs.JOBS_DIR,  # legacy top-level
 ]
 
 

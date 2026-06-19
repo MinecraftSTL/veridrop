@@ -109,7 +109,7 @@
       <li class="check-row check-{{ row.css }}">
         <span class="check-icon">
           {% if row.css == 'ok' %}
-          <svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="11" fill="#10b981"/><path d="M7 12.5l3.2 3.2L17 9" stroke="white" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="11" fill="#6B69D6"/><path d="M7 12.5l3.2 3.2L17 9" stroke="white" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
           {% elif row.css == 'warn' %}
           <svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="11" fill="#f59e0b"/><path d="M12 7v6M12 16.5v.5" stroke="white" stroke-width="2.4" stroke-linecap="round"/></svg>
           {% elif row.css == 'fail' %}
@@ -173,7 +173,7 @@
 
 {% if protocol == 'anthropic' and report.detected_non_anthropic_brands %}
 <section class="card alert-card">
-  <strong>⚠ 检测到非 Anthropic 后端品牌:</strong>
+  <strong>检测到非 Anthropic 后端品牌:</strong>
   {{ report.detected_non_anthropic_brands | join(', ') }}
 </section>
 {% endif %}
@@ -225,7 +225,7 @@
       <dd>询问模型自报身份,响应必须包含 "Claude" 与 "Anthropic",且不能自称是其他品牌(如 Kiro、AWS Q 等)。</dd>
       <dt>行为签名验证 (Behavioral)</dt>
       <dd>3 道行为指纹题(markdown 风格、列表偏好、拒绝语气),正版 Claude 有特征鲜明的回答模式。</dd>
-      <dt>思维签名验证 (Thinking) ⭐</dt>
+      <dt>思维签名验证 (Thinking)</dt>
       <dd>核心检测:Claude thinking 块返回的加密 <code>signature</code> 字节,任何中转站都无法伪造。</dd>
       <dt>模型一致性 (Consistency)</dt>
       <dd>验证 <code>response.model</code> 与请求一致,且多次调用输出长度稳定(变异系数 CV)。</dd>

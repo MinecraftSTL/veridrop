@@ -144,7 +144,7 @@
     if (key === lastKey) return; // already probed this combo
     lastKey = key;
 
-    setPill('neutral', '🔄 正在识别中转站可用模型...');
+    setPill('neutral', '正在识别中转站可用模型...');
     if (inflight) inflight.abort && inflight.abort();
     const ctrl = new AbortController();
     inflight = ctrl;
@@ -158,13 +158,13 @@
       data = await r.json();
     } catch (e) {
       if (e.name === 'AbortError') return;
-      setPill('warn', '⚪ 探测失败,但不影响检测继续 — 你填的模型会被直接尝试');
+      setPill('warn', '探测失败,但不影响检测继续 — 你填的模型会被直接尝试');
       return;
     }
     if (r.status === 429) {
       // Rate limited — surface clearly and keep submit enabled so the user
       // can still proceed (they're not blocked from detection itself).
-      setPill('warn', '⚠ ' + (data.error || '探测过于频繁,稍后再试') + '(检测仍可正常提交)');
+      setPill('warn', (data.error || '探测过于频繁,稍后再试') + '(检测仍可正常提交)');
       lastKey = null; // allow retry after backoff
       return;
     }
@@ -175,15 +175,15 @@
     if (!data.ok) {
       // Auth fail vs other errors — auth_ok=false is the only blocking case
       if (data.auth_ok === false) {
-        setPill('fail', '🔴 ' + (data.error || '鉴权失败'));
+        setPill('fail', (data.error || '鉴权失败'));
       } else {
-        setPill('warn', '⚪ ' + (data.error || '探测失败') + ' — 不影响检测继续');
+        setPill('warn', (data.error || '探测失败') + ' — 不影响检测继续');
       }
       return;
     }
 
     if (!data.models_endpoint_supported) {
-      setPill('neutral', '⚪ ' + (data.note || '该中转站不暴露 /v1/models') + '(检测可正常进行)');
+      setPill('neutral', (data.note || '该中转站不暴露 /v1/models') + '(检测可正常进行)');
       return;
     }
 
@@ -197,7 +197,7 @@
         .map((p) => ({proto: p, count: data.by_protocol[p].length, sample: data.by_protocol[p][0]}));
 
       let html =
-        '<div class="probe-headline">🟡 该中转站没有任何 ' + escapeHtml(protoLabel) + ' 模型</div>' +
+        '<div class="probe-headline">该中转站没有任何 ' + escapeHtml(protoLabel) + ' 模型</div>' +
         '<div class="probe-detail">已识别 ' + total + ' 个模型,但都不属于本检测协议。</div>';
       if (others.length) {
         html += '<div class="probe-actions">';
@@ -221,7 +221,7 @@
     const more = myModels.length > 4 ? ` 等共 ${myModels.length} 个` : '';
     setPillHtml(
       'ok',
-      '<div class="probe-headline">🟢 已识别 ' + total + ' 个模型,其中 ' + myModels.length + ' 个可用于本检测</div>' +
+      '<div class="probe-headline">已识别 ' + total + ' 个模型,其中 ' + myModels.length + ' 个可用于本检测</div>' +
       '<div class="probe-detail">' + escapeHtml(sample) + escapeHtml(more) + '</div>'
     );
 
@@ -308,7 +308,7 @@
         baseUrlInput.value = data.base_url;
         apiKeyInput.value = data.api_key;
         const fromLabel = {anthropic: 'Claude', openai: 'OpenAI', gemini: 'Gemini'}[data.from] || data.from;
-        setPill('neutral', '🔄 已从 ' + fromLabel + ' 页面带入凭据,正在重新探测...');
+        setPill('neutral', '已从 ' + fromLabel + ' 页面带入凭据,正在重新探测...');
         // Defer so the page paints first
         setTimeout(runProbe, 50);
       }
