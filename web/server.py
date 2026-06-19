@@ -36,14 +36,26 @@ app = FastAPI(title="Veridrop", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 
-# Single source of truth for the site name and favicon. Change these in one
-# place to update every page. FAVICON_PATH points at a file under web/static/;
-# replace that file to change the icon (SVG recommended; if raster, use 32x32
-# or larger square PNG/ICO).
-SITE_NAME = "Veridrop"
-FAVICON_PATH = "/static/favicon.svg"
+# Site name and favicon — single source of truth, overridable via environment.
+# VERIDROP_SITE_NAME sets the display name. VERIDROP_FAVICON_PATH points at a
+# file under web/static/ (SVG or PNG; for raster use a 32x32 or larger square
+# image). The favicon link's MIME type is derived from the file extension.
+SITE_NAME = os.environ.get("VERIDROP_SITE_NAME", "Veridrop").strip() or "Veridrop"
+FAVICON_PATH = (
+    os.environ.get("VERIDROP_FAVICON_PATH", "/static/favicon.svg").strip()
+    or "/static/favicon.svg"
+)
+_FAVICON_MIME = {
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".ico": "image/x-icon",
+    ".gif": "image/gif",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+}.get(os.path.splitext(FAVICON_PATH)[1].lower(), "image/svg+xml")
 templates.env.globals["SITE_NAME"] = SITE_NAME
 templates.env.globals["FAVICON_PATH"] = FAVICON_PATH
+templates.env.globals["FAVICON_MIME"] = _FAVICON_MIME
 
 
 @app.middleware("http")
