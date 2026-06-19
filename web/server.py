@@ -46,7 +46,6 @@ templates.env.globals["SITE_NAME"] = SITE_NAME
 templates.env.globals["FAVICON_PATH"] = FAVICON_PATH
 
 
-
 @app.middleware("http")
 async def no_html_cache(request: Request, call_next):
     """Prevent browsers from caching HTML responses.
@@ -74,8 +73,33 @@ WISHLIST_PATH = Path(
 )
 
 
+# Web-side env defaults. base_url/model fall back to these when the form
+# field is left empty; api_key is intentionally NOT read from the env so the
+# web flow never reuses a server-side key. Mirrors the CLI envvars per
+# protocol (Gemini has no model envvar, so it stays empty).
+_ENV_DEFAULTS = {
+    "anthropic": {
+        "base_url": os.environ.get("ANTHROPIC_BASE_URL", "").strip(),
+        "model": os.environ.get("ANTHROPIC_MODEL", "").strip(),
+    },
+    "openai": {
+        "base_url": os.environ.get("OPENAI_BASE_URL", "").strip(),
+        "model": os.environ.get("OPENAI_MODEL", "").strip(),
+    },
+    "gemini": {
+        "base_url": os.environ.get("GEMINI_BASE_URL", "").strip(),
+        "model": "",
+    },
+}
+
+
+def _env_default(protocol: str, field: str) -> str:
+    return _ENV_DEFAULTS.get(protocol, {}).get(field, "")
+
+
 def _protocol_from_model(model: str) -> str:
     normalized = model.strip().lower()
+
     if normalized.startswith(("gemini-", "models/gemini-")):
         return "gemini"
     if normalized.startswith(("gpt-", "o1", "o3", "o4")):
@@ -123,7 +147,11 @@ async def hub(request: Request) -> HTMLResponse:
 async def claude_index(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request, "index.html",
-        {"models": _model_choices()},
+        {
+            "models": _model_choices(),
+            "default_base_url": _env_default("anthropic", "base_url"),
+            "default_model": _env_default("anthropic", "model"),
+        },
     )
 
 
@@ -132,7 +160,11 @@ async def openai_index(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
         "openai.html",
-        {"models": _openai_model_choices()},
+        {
+            "models": _openai_model_choices(),
+            "default_base_url": _env_default("openai", "base_url"),
+            "default_model": _env_default("openai", "model"),
+        },
     )
 
 
@@ -141,7 +173,11 @@ async def gemini_index(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
         "gemini.html",
-        {"models": _gemini_model_choices()},
+        {
+            "models": _gemini_model_choices(),
+            "default_base_url": _env_default("gemini", "base_url"),
+            "default_model": _env_default("gemini", "model"),
+        },
     )
 
 
@@ -338,7 +374,7 @@ async def _preflight_or_422(
 @app.post("/api/probe")
 async def api_probe(
     request: Request,
-    base_url: str = Form(...),
+    base_url: str = Form(""),
     api_key: str = Form(...),
 ) -> JSONResponse:
     """Probe a relay's /v1/models for the form's pre-submit pill.
@@ -350,6 +386,7 @@ async def api_probe(
     many probes" pill instead of a generic upstream error.
     """
     ip = _client_ip(request)
+
     allowed, retry_after = check_rate(
         ip, limit=_PROBE_RATE_LIMIT, window_s=_PROBE_RATE_WINDOW_S
     )
@@ -366,7 +403,7 @@ async def api_probe(
             headers={"Retry-After": str(wait)},
         )
 
-    base_url = base_url.strip()
+    base_url = base_url.strip() or _env_default("anthropic", "base_url")
     api_key = api_key.strip()
 
     if not base_url.startswith(("http://", "https://")):
@@ -374,6 +411,7 @@ async def api_probe(
             {"ok": False, "error": "base_url must start with http(s)://"},
             status_code=200,
         )
+
     if not api_key or len(api_key) < 8:
         return JSONResponse(
             {"ok": False, "error": "api_key looks invalid"},
@@ -389,16 +427,16 @@ async def api_probe(
 async def api_detect_claude(
     request: Request,
     response: FastAPIResponse,
-    base_url: str = Form(...),
+    base_url: str = Form(""),
     api_key: str = Form(...),
-    model: str = Form(...),
+    model: str = Form(""),
     mode: str = Form("full"),
     include_long_context: bool = Form(False),
     include_long_context_extreme: bool = Form(False),
 ) -> JSONResponse:
-    base_url = base_url.strip()
+    base_url = base_url.strip() or _env_default("anthropic", "base_url")
     api_key = api_key.strip()
-    model = model.strip()
+    model = model.strip() or _env_default("anthropic", "model")
     mode = mode.strip().lower()
 
     if not base_url.startswith(("http://", "https://")):
@@ -419,6 +457,7 @@ async def api_detect_claude(
         response.headers["Deprecation"] = "true"
         response.headers["Link"] = '</api/detect/claude>; rel="successor-version"'
         inferred = _protocol_from_model(model)
+
         if inferred != "anthropic":
             await _preflight_or_422(request, base_url, api_key, model, inferred)
             job_id = await jobs.submit(

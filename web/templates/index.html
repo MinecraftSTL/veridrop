@@ -75,8 +75,8 @@
   <form id="detect-form" data-endpoint="/api/detect/claude" autocomplete="off">
     <div class="field">
       <label for="base_url">中转站接口地址</label>
-      <input type="url" id="base_url" name="base_url" required
-             placeholder="https://api.example.com" />
+      <input type="url" id="base_url" name="base_url"
+             placeholder="{{ default_base_url or 'https://api.example.com' }}" />
       <p class="hint">中转站根 URL,Veridrop 将向其 <code>/v1/messages</code> 发送测试请求。</p>
     </div>
 
@@ -91,9 +91,8 @@
       <div class="field">
         <label for="model">目标模型</label>
         <div class="combo">
-          <input type="text" id="model" name="model" required
-                 value="claude-haiku-4-5-20251001" autocomplete="off"
-                 placeholder="claude-haiku-4-5-20251001"
+          <input type="text" id="model" name="model" autocomplete="off"
+                 placeholder="{{ default_model or 'claude-haiku-4-5-20251001' }}"
                  maxlength="200" />
           <ul class="combo-list" id="model-list" hidden>
             {% for m in models %}
