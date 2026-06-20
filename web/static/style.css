@@ -1211,7 +1211,7 @@ code {
   width: 36px; height: 36px;
   border: 3px solid var(--line);
   border-top-color: var(--green);
-  border-radius: 50%;
+  border-radius: 50% !important;
   margin: 0 auto 18px;
   animation: spin 0.9s linear infinite;
 }
@@ -1244,7 +1244,7 @@ code {
 
 .score-ring {
   width: 220px; height: 220px;
-  border-radius: 50%;
+  border-radius: 50% !important;
   display: flex; align-items: center; justify-content: center;
   position: relative;
 }
@@ -1256,7 +1256,7 @@ code {
 .score-inner {
   width: calc(100% - 24px); height: calc(100% - 24px);
   background: var(--bg);
-  border-radius: 50%;
+  border-radius: 50% !important;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
 .score-num { font-size: 52px; font-weight: 700; letter-spacing: -0.03em; }
