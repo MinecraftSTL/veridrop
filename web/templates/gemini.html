@@ -147,49 +147,5 @@
   </div>
 </section>
 
-<section class="faq" id="faq">
-  <h2>常见问题(精选)</h2>
-
-  <details class="faq-item" open>
-    <summary>为什么 Gemini API 中转站经常 model_not_found?</summary>
-    <div class="faq-body">
-      <p>三种可能:① 中转站只代理部分 Gemini 模型(很多中转站只有 3.x preview 系列,没有 2.5);
-        ② 模型名拼写差异(<code>gemini-2.5-flash</code> vs <code>models/gemini-2.5-flash</code>);
-        ③ 模型已下架。Veridrop 提交前会做 preflight,500ms 内识别死模型并给出可用列表替代。</p>
-    </div>
-  </details>
-
-  <details class="faq-item">
-    <summary>Gemini 3.x preview 检测时 max_completion_tokens 应该填多少?</summary>
-    <div class="faq-body">
-      <p>至少 64,推荐 128+。Gemini 3 默认开 thinking,会消耗 30-60 reasoning_tokens 才输出文本。
-        如果 max 太小(< 32),thinking 占满后没空间出文本,响应就是空字符串 + finish_reason=length。</p>
-    </div>
-  </details>
-
-  <details class="faq-item">
-    <summary>为什么不支持 Gemini 原生 <code>/v1beta/models/X:generateContent</code> 路径?</summary>
-    <div class="faq-body">
-      <p>99% 的第三方 Gemini 中转站只暴露 OpenAI 兼容协议,Google 官方也提供 OpenAI 兼容端点
-        <code>/v1beta/openai</code>。维护两套独立的检测逻辑成本高且容易引入翻译层导致结果失真,
-        所以集中在 OpenAI 兼容路径上做透。</p>
-    </div>
-  </details>
-
-  <details class="faq-item">
-    <summary>Google 官方 Gemini API 也能用 Veridrop 测吗?</summary>
-    <div class="faq-body">
-      <p>可以。base_url 填 <code>https://generativelanguage.googleapis.com/v1beta/openai</code>,
-        api_key 用 Google AI Studio 申请的 <code>AIza...</code> key。Google 官方端点应该全 7 项 100 分,
-        可作为基线对比第三方中转站。</p>
-    </div>
-  </details>
-
-  <p class="faq-more">
-    更多 Gemini 中转站问题 → <a href="/faq#gemini">/faq#gemini</a>
-    · 全部 <a href="/faq">常见问题</a>
-  </p>
-</section>
-
 {# app.js loaded globally by base.html #}
 {% endblock %}

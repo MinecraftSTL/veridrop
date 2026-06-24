@@ -167,59 +167,5 @@
   </div>
 </section>
 
-<section class="faq" id="faq">
-  <h2>常见问题(精选)</h2>
-
-  <details class="faq-item" open>
-    <summary>我花钱买的是 GPT,怎么知道中转站没偷偷换成更便宜的模型?</summary>
-    <div class="faq-body">
-      <p>看响应里有没有「穿帮」的字段。OpenAI 官方回包里只会出现三个 token 计数字段;
-        但如果中转站偷偷把你的请求转给了 Claude 后端、再包装成 OpenAI 格式发回来,
-        Anthropic 那边的字段经常会跟着漏出来。Veridrop 一旦在响应里抓到这种本不该出现的字段,
-        就会把它标记成「严重问题」,整体评级降到黄色。</p>
-      <p class="muted small">简单说:正版 GPT 会按 OpenAI 自家说明书回话,
-        冒牌的偷懒包装层经常露出对面厂家的痕迹。</p>
-    </div>
-  </details>
-
-  <details class="faq-item">
-    <summary>我得了 75 分,为什么圆圈还是黄色而不是绿色?</summary>
-    <div class="faq-body">
-      <p>分数只是其中一个维度。Veridrop 还会看「有没有严重问题」 — 哪怕分数到了通过线,
-        只要存在 1 条严重问题(比如上面说的字段穿帮),整体结论就会降到黄色「小心使用」。</p>
-      <p>遇到这种情况通常意味着:接口能用、能返回结果,但跑的可能不是你以为的那个模型。
-        如果你只是聊天、写写日常文本可能没大问题;但如果用来跑代码、做严肃任务,建议换一家。</p>
-    </div>
-  </details>
-
-  <details class="faq-item">
-    <summary>测完显示「0 个 GPT 模型可用」,是中转站挂了吗?</summary>
-    <div class="faq-body">
-      <p>大概率不是中转站坏了,而是<strong>这把 key 没开通 GPT 模型权限</strong>。
-        很多综合中转站把模型按厂家分组卖,有的客户买的是 Claude 卡、有的是 Gemini 卡,
-        没买就调不出对应模型。</p>
-      <p>Veridrop 检测前会先快速看一眼你这把 key 能用哪些模型 — 如果当前是 OpenAI 页但 0 个 GPT,
-        系统会自动提示你「这把 key 实际能用 X 个 Claude 模型,要去那边测吗?」直接点过去就行。</p>
-    </div>
-  </details>
-
-  <details class="faq-item">
-    <summary>为什么 OpenAI 的检测不像 Claude 那样能「拍胸脯保证真伪」?</summary>
-    <div class="faq-body">
-      <p>因为 OpenAI 没在响应里放「数学证明」级别的防伪码。Claude 有一种叫
-        <strong>thinking signature</strong> 的加密签名,中转站没法伪造,所以 Veridrop 在
-        Claude 那边能给出非常确定的结论。</p>
-      <p>OpenAI 这边只能从「行为像不像 GPT、字段格式对不对、能力完不完整」这些间接线索判断,
-        所以我们的口径是「<strong>行为/协议级</strong>」检测 — 能告诉你「看起来正常」或者
-        「看起来可疑」,但做不到 100% 数学证明。想要确定结论,推荐用 Claude 模型检测同一家中转站。</p>
-    </div>
-  </details>
-
-  <p class="faq-more">
-    更多 OpenAI 中转站问题 → <a href="/faq#openai">/faq#openai</a>
-    · 全部 <a href="/faq">常见问题</a>
-  </p>
-</section>
-
 {# app.js loaded globally by base.html #}
 {% endblock %}
