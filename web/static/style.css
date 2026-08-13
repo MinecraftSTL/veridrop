@@ -1,12 +1,12 @@
-/* veridrop style — dark theme, #6B69D6 accent. No external deps. */
+/* veridrop style — dark theme, #5555FF accent. No external deps. */
 :root {
   --bg: #14141a;
   --bg-soft: #1e1e26;
   --text: #ececf1;
   --muted: #9a9ab0;
   --line: #2e2e3a;
-  --green: #6B69D6;
-  --green-dark: #5755c4;
+  --green: #5555FF;
+  --green-dark: #4444d9;
   --green-soft: #26263a;
   --red: #f87171;
   --amber: #fbbf24;
@@ -300,8 +300,8 @@ code {
   border: 1px solid var(--line);
   border-radius: 12px;
   background: linear-gradient(135deg,
-    rgba(107, 105, 214, 0.06) 0%,
-    rgba(107, 105, 214, 0.02) 60%,
+    rgba(85, 85, 255, 0.06) 0%,
+    rgba(85, 85, 255, 0.02) 60%,
     var(--bg) 100%);
 }
 .trust-strip-head {
@@ -464,7 +464,7 @@ code {
   flex-direction: column;
   min-height: 300px;
 }
-.protocol-card-primary { border-color: rgba(107, 105, 214, 0.55); }
+.protocol-card-primary { border-color: rgba(85, 85, 255, 0.55); }
 .protocol-top {
   display: flex;
   justify-content: space-between;
@@ -1111,7 +1111,7 @@ code {
 .field input:focus, .field select:focus {
   outline: none;
   border-color: var(--green);
-  box-shadow: 0 0 0 3px rgba(107,105,214,0.25);
+  box-shadow: 0 0 0 3px rgba(85,85,255,0.25);
 }
 .field .hint { color: var(--muted); font-size: 12px; margin: 4px 0 0; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -1724,7 +1724,7 @@ code {
 }
 .faq-entry[open] {
   border-color: var(--green);
-  box-shadow: 0 1px 6px rgba(107, 105, 214, 0.18);
+  box-shadow: 0 1px 6px rgba(85, 85, 255, 0.18);
 }
 .faq-entry summary.faq-q {
   cursor: pointer;

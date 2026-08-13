@@ -43,8 +43,8 @@ def _load_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
 
 # Color palette — green-on-white for "pass", neutral grey for body text,
 # warning amber / red for non-pass cases.
-_GREEN = (107, 105, 214)
-_GREEN_DARK = (87, 85, 196)
+_GREEN = (85, 85, 255)
+_GREEN_DARK = (68, 68, 217)
 _RED = (239, 68, 68)
 _AMBER = (245, 158, 11)
 _TEXT = (17, 24, 39)
