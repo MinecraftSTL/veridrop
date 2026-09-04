@@ -180,23 +180,20 @@ def _fmt(v) -> str:
 @app.command()
 def detect(
     base_url: str = typer.Option(
-        None, "--base-url", envvar="ANTHROPIC_BASE_URL",
+        None, "--base-url",
         help=(
-            "Relay station base URL. Reads ANTHROPIC_BASE_URL; "
-            "for --protocol openai/gemini also falls back to "
-            "OPENAI_BASE_URL / GEMINI_BASE_URL or each protocol's official endpoint."
+            "Relay station base URL. Reads the protocol-specific "
+            "*_BASE_URL environment variable."
         ),
     ),
     api_key: str = typer.Option(
-        None, "--api-key", envvar="ANTHROPIC_API_KEY",
+        None, "--api-key",
         help=(
-            "API key. Reads ANTHROPIC_API_KEY by default; for non-anthropic "
-            "protocols falls back to OPENAI_API_KEY / GEMINI_API_KEY."
+            "API key. Reads the protocol-specific *_API_KEY environment variable."
         ),
     ),
     model: str = typer.Option(
-        "claude-haiku-4-5", "--model", envvar="ANTHROPIC_MODEL",
-        help="Model ID to test.",
+        None, "--model", help="Model ID to test.",
     ),
     mode: Mode = typer.Option(
         Mode.STANDARD,
@@ -242,13 +239,20 @@ def detect(
     ),
 ) -> None:
     """Run a multi-detector quality check against a relay station."""
-    proto = _resolve_protocol(protocol, model)
+    proto = _resolve_protocol(protocol, model or "")
+    if not model:
+        model = os.environ.get(f"{proto.value.upper()}_MODEL", "") or {
+            Protocol.ANTHROPIC: "claude-haiku-4-5",
+            Protocol.OPENAI: "gpt-5.5",
+            Protocol.GEMINI: "gemini-3-flash-preview",
+        }[proto]
+        proto = _resolve_protocol(protocol, model)
 
     # Per-protocol envvar fallback so users can keep distinct keys for
     # each provider in the same .env without juggling them on the CLI.
-    if not base_url and proto != Protocol.ANTHROPIC:
+    if not base_url:
         base_url = os.environ.get(f"{proto.value.upper()}_BASE_URL") or ""
-    if not api_key and proto != Protocol.ANTHROPIC:
+    if not api_key:
         api_key = os.environ.get(f"{proto.value.upper()}_API_KEY") or ""
 
     # Default endpoint when only an API key is supplied — convenient for

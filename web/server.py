@@ -36,11 +36,20 @@ app = FastAPI(title="Veridrop", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 
-# Site name and favicon — single source of truth, overridable via environment.
+# Site identity and favicon — single source of truth, overridable via environment.
 # VERIDROP_SITE_NAME sets the display name. VERIDROP_FAVICON_PATH points at a
 # file under web/static/ (SVG or PNG; for raster use a 32x32 or larger square
-# image). The favicon link's MIME type is derived from the file extension.
+# image). VERIDROP_SITE_URL is the public site root used for absolute links in
+# metadata, sitemap entries, and generated report attribution.
 SITE_NAME = os.environ.get("VERIDROP_SITE_NAME", "Veridrop").strip() or "Veridrop"
+
+
+def _site_url_from_env() -> str:
+    value = os.environ.get("VERIDROP_SITE_URL", "https://veridrop.org").strip()
+    return value.rstrip("/") or "https://veridrop.org"
+
+
+SITE_URL = _site_url_from_env()
 FAVICON_PATH = (
     os.environ.get("VERIDROP_FAVICON_PATH", "/static/favicon.svg").strip()
     or "/static/favicon.svg"
@@ -54,6 +63,7 @@ _FAVICON_MIME = {
     ".jpeg": "image/jpeg",
 }.get(os.path.splitext(FAVICON_PATH)[1].lower(), "image/svg+xml")
 templates.env.globals["SITE_NAME"] = SITE_NAME
+templates.env.globals["SITE_URL"] = SITE_URL
 templates.env.globals["FAVICON_PATH"] = FAVICON_PATH
 templates.env.globals["FAVICON_MIME"] = _FAVICON_MIME
 
@@ -88,7 +98,7 @@ WISHLIST_PATH = Path(
 # Web-side env defaults. base_url/model fall back to these when the form
 # field is left empty; api_key is intentionally NOT read from the env so the
 # web flow never reuses a server-side key. Mirrors the CLI envvars per
-# protocol (Gemini has no model envvar, so it stays empty).
+# protocol.
 _ENV_DEFAULTS = {
     "anthropic": {
         "base_url": os.environ.get("ANTHROPIC_BASE_URL", "").strip(),
@@ -100,7 +110,7 @@ _ENV_DEFAULTS = {
     },
     "gemini": {
         "base_url": os.environ.get("GEMINI_BASE_URL", "").strip(),
-        "model": "",
+        "model": os.environ.get("GEMINI_MODEL", "").strip(),
     },
 }
 
@@ -608,7 +618,11 @@ async def result_jpg(job_id: str) -> Response:
     # generated we always serve from disk to spare the CPU.
     cache_path = jobs.image_path(job_id, j.protocol)
     if not cache_path.exists():
-        png_bytes = render_report_jpg(j.report)
+        png_bytes = render_report_jpg(
+            j.report,
+            site_url=SITE_URL,
+            report_url=f"{SITE_URL}/r/{job_id}",
+        )
         cache_path.write_bytes(png_bytes)
     return Response(
         content=cache_path.read_bytes(),
@@ -694,6 +708,7 @@ async def result_page(request: Request, job_id: str) -> HTMLResponse:
             "report": j.report,
             "rows": _result_rows(j.report),
             "report_notes": _report_notes(j.report),
+            "report_url": f"{SITE_URL}/r/{job_id}",
             "breadcrumb_domain": domain,
             **_seo_meta_for_report(j.report),
         },
@@ -731,12 +746,12 @@ async def llms_txt() -> Response:
 # its content changes whenever a new report lands, so we override its
 # lastmod with the most recent report timestamp.
 _STATIC_SITEMAP_URLS = [
-    ("https://veridrop.org/",            "weekly",  "1.0",  "hub.html"),
-    ("https://veridrop.org/claude",      "weekly",  "0.9",  "index.html"),
-    ("https://veridrop.org/openai",      "weekly",  "0.9",  "openai.html"),
-    ("https://veridrop.org/gemini",      "weekly",  "0.9",  "gemini.html"),
-    ("https://veridrop.org/leaderboard", "daily",   "0.85", "leaderboard.html"),
-    ("https://veridrop.org/faq",         "monthly", "0.8",  "faq.html"),
+    (f"{SITE_URL}/",            "weekly",  "1.0",  "hub.html"),
+    (f"{SITE_URL}/claude",      "weekly",  "0.9",  "index.html"),
+    (f"{SITE_URL}/openai",      "weekly",  "0.9",  "openai.html"),
+    (f"{SITE_URL}/gemini",      "weekly",  "0.9",  "gemini.html"),
+    (f"{SITE_URL}/leaderboard", "daily",   "0.85", "leaderboard.html"),
+    (f"{SITE_URL}/faq",         "monthly", "0.8",  "faq.html"),
 ]
 
 _SITEMAP_REPORT_DIRS = [
@@ -805,7 +820,7 @@ async def sitemap_xml() -> Response:
             except OSError:
                 continue
             lines.append(
-                f"  <url><loc>https://veridrop.org/r/{job_id}</loc>"
+                f"  <url><loc>{SITE_URL}/r/{job_id}</loc>"
                 f"<lastmod>{lastmod}</lastmod>"
                 f"<changefreq>monthly</changefreq>"
                 f"<priority>0.6</priority></url>"
@@ -817,7 +832,7 @@ async def sitemap_xml() -> Response:
     for r in relays:
         if not leaderboard.is_valid_domain(r.domain):
             continue
-        line = f"  <url><loc>https://veridrop.org/leaderboard/{r.domain}</loc>"
+        line = f"  <url><loc>{SITE_URL}/leaderboard/{r.domain}</loc>"
         if r.last_checked:
             line += f"<lastmod>{r.last_checked.strftime('%Y-%m-%d')}</lastmod>"
         line += "<changefreq>weekly</changefreq><priority>0.75</priority></url>"

@@ -150,7 +150,7 @@ python3 -m venv venv
 ```bash
 # 配置中转站凭据
 cp .env.example .env
-nano .env  # 填 ANTHROPIC_BASE_URL / ANTHROPIC_API_KEY / ANTHROPIC_MODEL
+nano .env  # 填 VERIDROP_SITE_URL，以及对应协议的 API 环境变量
 
 # 单次连通性测试(秒级,几乎零成本)
 ./venv/bin/relay-detector ping --model claude-haiku-4-5
@@ -226,14 +226,22 @@ relay-detector detect [OPTIONS]
 
 | Flag | 默认 | 说明 |
 |---|---|---|
-| `--base-url` | `$ANTHROPIC_BASE_URL` | 中转站根 URL |
-| `--api-key` | `$ANTHROPIC_API_KEY` | API key |
-| `--model` | `claude-haiku-4-5` | 测试目标模型 |
+| `--base-url` | `$<PROTOCOL>_BASE_URL` | 中转站根 URL |
+| `--api-key` | `$<PROTOCOL>_API_KEY` | API key |
+| `--model` | `$<PROTOCOL>_MODEL` | 测试目标模型；未设置时使用协议默认模型 |
 | `--mode` | `standard` | `quick` / `standard` / `full` |
 | `--protocol` | 自动 | `anthropic` / `openai` / `gemini` |
 | `--max-concurrent` | `3` | 并发请求数 |
 | `--timeout` | `30` | 单请求超时秒数 |
 | `--output` `-o` | stdout | JSON 报告输出路径 |
+
+`detect` 支持三套协议环境变量：`ANTHROPIC_*`、`OPENAI_*` 和 `GEMINI_*`，
+每套都包含 `BASE_URL`、`API_KEY`、`MODEL`。指定 `--protocol openai` 或
+`--protocol gemini` 后会读取对应变量，命令行选项优先于环境变量。
+
+Web 服务还支持 `VERIDROP_SITE_URL`，用于配置部署后的公开网页根地址。
+结果页的 canonical、分享图片、sitemap 和“由 xxx 生成”均使用该地址；
+例如 `VERIDROP_SITE_URL=https://verify.example.com`。
 
 ### `compare`
 

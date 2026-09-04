@@ -310,7 +310,10 @@ def _gemini_jpg_note(report: dict[str, Any]) -> str:
     return ""
 
 
-def render_report_jpg(report: dict[str, Any]) -> bytes:
+def render_report_jpg(
+    report: dict[str, Any], site_url: str = "https://veridrop.org",
+    report_url: str | None = None,
+) -> bytes:
     """Render the report into a JPG and return the bytes."""
     W, H = 1400, 1000
     img = Image.new("RGB", (W, H), _BG)
@@ -329,7 +332,7 @@ def render_report_jpg(report: dict[str, Any]) -> bytes:
 
     # share/brand pill in top-right
     pill_font = _load_font(18)
-    pill_text = "veridrop.org"
+    pill_text = site_url.removeprefix("https://").removeprefix("http://")
     pb = d.textbbox((0, 0), pill_text, font=pill_font)
     pw = pb[2] - pb[0]
     pill_x = W - 60 - pw - 32
@@ -386,7 +389,8 @@ def render_report_jpg(report: dict[str, Any]) -> bytes:
 
     # 报告来源
     attr_font = _load_font(14)
-    attr_text = "由 veridrop.org 生成"
+    attribution = report_url or site_url
+    attr_text = f"由 {attribution.removeprefix('https://').removeprefix('http://')} 生成"
     ab = d.textbbox((0, 0), attr_text, font=attr_font)
     aw = ab[2] - ab[0]
     d.text(
