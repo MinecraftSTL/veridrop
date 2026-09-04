@@ -1,5 +1,26 @@
 # Veridrop · AI API 中转站真伪检测 / Claude · OpenAI · Gemini 中转站真假鉴定工具
 
+## What is Veridrop? (English)
+
+**Veridrop is an open-source authenticity and compliance checker for AI API
+relay/proxy services.** Given a `base_url + api_key + model`, it runs a suite
+of probe requests and diffs the responses against official-API baselines at
+the field, protocol, and cryptographic level — answering three questions:
+
+1. **Authenticity** — does this relay really forward to the Claude / GPT /
+   Gemini model it claims, or is it a cheaper model in disguise?
+2. **Capability** — are advanced features (PDF, tool use, thinking, function
+   calling, long context) silently stripped?
+3. **Compliance** — do response fields, streaming event sequences, and usage
+   accounting match the official API specs?
+
+The hosted service at **[veridrop.org](https://veridrop.org)** is free,
+requires no signup, and never persists API keys. To date the community has
+run **44,000+ public detections across 6,500+ relay providers**, aggregated
+into a Bayesian-weighted public leaderboard, with **~1,500–1,800 daily unique
+visitors**. Supported protocols: Anthropic Messages API, OpenAI Chat
+Completions, and the Gemini OpenAI-compatible API.
+
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Tests](https://github.com/canarybyte/veridrop/actions/workflows/test.yml/badge.svg)](https://github.com/canarybyte/veridrop/actions/workflows/test.yml)
