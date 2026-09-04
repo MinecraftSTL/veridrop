@@ -88,8 +88,7 @@
   <form id="detect-form" data-endpoint="/api/detect/gemini" autocomplete="off">
     <div class="field">
       <label for="base_url">中转站接口地址</label>
-      <input type="url" id="base_url" name="base_url" required
-             value="{{ default_base_url }}"
+      <input type="url" id="base_url" name="base_url"
              placeholder="{{ default_base_url or '请输入中转站接口地址' }}" />
       <p class="hint">填到 <code>/chat/completions</code> 的上一级。Google 官方填 <code>/v1beta/openai</code>;第三方中转站通常填 <code>/v1</code>。</p>
     </div>
@@ -105,8 +104,7 @@
       <div class="field">
         <label for="model">目标模型</label>
         <div class="combo">
-          <input type="text" id="model" name="model" required autocomplete="off"
-                 value="{{ default_model }}"
+          <input type="text" id="model" name="model" autocomplete="off"
                  placeholder="{{ default_model or 'gemini-3-flash-preview' }}"
                  maxlength="200" />
           <ul class="combo-list" id="model-list" hidden>

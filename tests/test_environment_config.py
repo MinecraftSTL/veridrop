@@ -89,7 +89,7 @@ def test_result_template_uses_configured_report_url():
     assert "由 <a href=\"https://upstream.example" not in rendered
 
 
-def test_protocol_forms_render_required_provider_defaults_as_values():
+def test_protocol_forms_match_claude_empty_field_behavior():
     cases = [
         ("index.html", "https://claude-relay.example", "claude-test-model"),
         ("openai.html", "https://openai-relay.example/v1", "gpt-test-model"),
@@ -102,14 +102,10 @@ def test_protocol_forms_render_required_provider_defaults_as_values():
             default_model=model,
             models=[],
         )
-        if template_name == "index.html":
-            assert f'placeholder="{base_url}"' in rendered
-            assert f'placeholder="{model}"' in rendered
-            assert f'value="{base_url}"' not in rendered
-            assert f'value="{model}"' not in rendered
-        else:
-            assert f'value="{base_url}"' in rendered
-            assert f'value="{model}"' in rendered
+        assert f'placeholder="{base_url}"' in rendered
+        assert f'placeholder="{model}"' in rendered
+        assert f'value="{base_url}"' not in rendered
+        assert f'value="{model}"' not in rendered
 
 
 def test_openai_helper_does_not_show_example_domain():
@@ -133,12 +129,13 @@ def test_forms_do_not_render_example_address_when_no_environment_default():
         assert "请输入中转站接口地址" in rendered
 
 
-def test_openai_and_gemini_keep_required_form_validation():
+def test_openai_and_gemini_allow_environment_backed_fields_to_be_empty():
     for template_name in ("openai.html", "gemini.html"):
         rendered = server.templates.get_template(template_name).render(
             default_base_url="",
             default_model="",
             models=[],
         )
-        assert 'id="base_url" name="base_url" required' in rendered
-        assert 'id="model" name="model" required' in rendered
+        assert 'id="base_url" name="base_url" required' not in rendered
+        assert 'id="model" name="model" required' not in rendered
+        assert 'id="api_key" name="api_key" required' in rendered
