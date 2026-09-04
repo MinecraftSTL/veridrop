@@ -87,3 +87,58 @@ def test_result_template_uses_configured_report_url():
     assert "由 <a href=\"https://verify.example.com/r/report-123\">" in rendered
     assert "https://verify.example.com/r/report-123.jpg" in rendered
     assert "由 <a href=\"https://upstream.example" not in rendered
+
+
+def test_protocol_forms_render_required_provider_defaults_as_values():
+    cases = [
+        ("index.html", "https://claude-relay.example", "claude-test-model"),
+        ("openai.html", "https://openai-relay.example/v1", "gpt-test-model"),
+        ("gemini.html", "https://gemini-relay.example/v1", "gemini-test-model"),
+    ]
+
+    for template_name, base_url, model in cases:
+        rendered = server.templates.get_template(template_name).render(
+            default_base_url=base_url,
+            default_model=model,
+            models=[],
+        )
+        if template_name == "index.html":
+            assert f'placeholder="{base_url}"' in rendered
+            assert f'placeholder="{model}"' in rendered
+            assert f'value="{base_url}"' not in rendered
+            assert f'value="{model}"' not in rendered
+        else:
+            assert f'value="{base_url}"' in rendered
+            assert f'value="{model}"' in rendered
+
+
+def test_openai_helper_does_not_show_example_domain():
+    rendered = server.templates.get_template("openai.html").render(
+        default_base_url="https://relay.example/v1",
+        default_model="gpt-test-model",
+        models=[],
+    )
+    hint = rendered.split('<p class="hint">', 1)[1].split("</p>", 1)[0]
+    assert "api.example.com" not in hint
+
+
+def test_forms_do_not_render_example_address_when_no_environment_default():
+    for template_name in ("index.html", "openai.html", "gemini.html"):
+        rendered = server.templates.get_template(template_name).render(
+            default_base_url="",
+            default_model="",
+            models=[],
+        )
+        assert "api.example.com" not in rendered
+        assert "请输入中转站接口地址" in rendered
+
+
+def test_openai_and_gemini_keep_required_form_validation():
+    for template_name in ("openai.html", "gemini.html"):
+        rendered = server.templates.get_template(template_name).render(
+            default_base_url="",
+            default_model="",
+            models=[],
+        )
+        assert 'id="base_url" name="base_url" required' in rendered
+        assert 'id="model" name="model" required' in rendered

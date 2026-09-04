@@ -55,7 +55,7 @@
   "estimatedCost": {"@type": "MonetaryAmount", "currency": "USD", "value": "0.02"},
   "step": [
     {"@type": "HowToStep", "name": "打开检测页", "text": "访问 https://veridrop.org/claude"},
-    {"@type": "HowToStep", "name": "填中转站地址", "text": "在 base_url 输入框填中转站根 URL,例如 https://api.example.com"},
+    {"@type": "HowToStep", "name": "填中转站地址", "text": "在 base_url 输入框填写中转站根 URL"},
     {"@type": "HowToStep", "name": "粘贴 API key", "text": "在 API 密钥框粘贴你的 sk-... key,只用于本次检测,不会被记录"},
     {"@type": "HowToStep", "name": "选模型 + 模式", "text": "下拉自动列出该 key 在该中转站可用的模型,选 standard 模式覆盖 9 项检测约 45 秒"},
     {"@type": "HowToStep", "name": "开始检测", "text": "点开始检测,等 30-75 秒拿到报告"},
@@ -76,7 +76,7 @@
     <div class="field">
       <label for="base_url">中转站接口地址</label>
       <input type="url" id="base_url" name="base_url"
-             placeholder="{{ default_base_url or 'https://api.example.com' }}" />
+             placeholder="{{ default_base_url or '请输入中转站接口地址' }}" />
       <p class="hint">中转站根 URL,Veridrop 将向其 <code>/v1/messages</code> 发送测试请求。</p>
     </div>
 

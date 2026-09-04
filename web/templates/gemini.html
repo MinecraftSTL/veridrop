@@ -55,7 +55,7 @@
   "estimatedCost": {"@type": "MonetaryAmount", "currency": "USD", "value": "0.005"},
   "step": [
     {"@type": "HowToStep", "name": "打开检测页", "text": "访问 https://veridrop.org/gemini"},
-    {"@type": "HowToStep", "name": "填中转站地址", "text": "Google 官方填 https://generativelanguage.googleapis.com/v1beta/openai;第三方中转站通常填 https://api.example.com/v1"},
+    {"@type": "HowToStep", "name": "填中转站地址", "text": "填写 Gemini OpenAI-compatible API 的中转站根地址"},
     {"@type": "HowToStep", "name": "粘贴 API key", "text": "Google 官方用 AIza... key,第三方中转站用 sk-... key"},
     {"@type": "HowToStep", "name": "选模型 + 模式", "text": "推荐 gemini-2.5-flash 或 gemini-3-flash-preview,standard 模式约 40 秒"},
     {"@type": "HowToStep", "name": "开始检测", "text": "点开始检测,等 30-70 秒拿到报告"},
@@ -89,7 +89,8 @@
     <div class="field">
       <label for="base_url">中转站接口地址</label>
       <input type="url" id="base_url" name="base_url" required
-             placeholder="https://generativelanguage.googleapis.com/v1beta/openai" />
+             value="{{ default_base_url }}"
+             placeholder="{{ default_base_url or '请输入中转站接口地址' }}" />
       <p class="hint">填到 <code>/chat/completions</code> 的上一级。Google 官方填 <code>/v1beta/openai</code>;第三方中转站通常填 <code>/v1</code>。</p>
     </div>
 
@@ -104,9 +105,9 @@
       <div class="field">
         <label for="model">目标模型</label>
         <div class="combo">
-          <input type="text" id="model" name="model" required
-                 value="gemini-3-flash-preview" autocomplete="off"
-                 placeholder="gemini-3-flash-preview"
+          <input type="text" id="model" name="model" required autocomplete="off"
+                 value="{{ default_model }}"
+                 placeholder="{{ default_model or 'gemini-3-flash-preview' }}"
                  maxlength="200" />
           <ul class="combo-list" id="model-list" hidden>
             {% for m in models %}

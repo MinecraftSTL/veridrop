@@ -514,16 +514,16 @@ async def api_detect_claude(
 @app.post("/api/detect/openai")
 async def api_detect_openai(
     request: Request,
-    base_url: str = Form(...),
+    base_url: str = Form(""),
     api_key: str = Form(...),
-    model: str = Form(...),
+    model: str = Form(""),
     mode: str = Form("standard"),
     include_long_context: bool = Form(False),
     include_long_context_extreme: bool = Form(False),
 ) -> JSONResponse:
-    base_url = base_url.strip()
+    base_url = base_url.strip() or _env_default("openai", "base_url")
     api_key = api_key.strip()
-    model = model.strip()
+    model = model.strip() or _env_default("openai", "model")
     mode = mode.strip().lower()
 
     if not base_url.startswith(("http://", "https://")):
@@ -548,14 +548,14 @@ async def api_detect_openai(
 @app.post("/api/detect/gemini")
 async def api_detect_gemini(
     request: Request,
-    base_url: str = Form(...),
+    base_url: str = Form(""),
     api_key: str = Form(...),
-    model: str = Form(...),
+    model: str = Form(""),
     mode: str = Form("standard"),
 ) -> JSONResponse:
-    base_url = base_url.strip()
+    base_url = base_url.strip() or _env_default("gemini", "base_url")
     api_key = api_key.strip()
-    model = model.strip()
+    model = model.strip() or _env_default("gemini", "model")
     mode = mode.strip().lower()
 
     if not base_url.startswith(("http://", "https://")):
