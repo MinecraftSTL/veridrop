@@ -124,3 +124,59 @@ def test_adapter_rejects_partial_attribution(monkeypatch):
     assert result["prediction_name"] is None
     assert result["results"] == []
     assert "有效回答不足" in result["run_error"]
+
+
+class _FakeHTTPResponse:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def read(self):
+        return json.dumps(self.payload).encode("utf-8")
+
+
+def test_request_completion_parses_openai_chat_response(monkeypatch):
+    captured = {}
+
+    def fake_urlopen(request, timeout):
+        captured["url"] = request.full_url
+        captured["auth"] = request.headers.get("Authorization")
+        return _FakeHTTPResponse({"choices": [{"message": {"content": "1 2 3"}, "finish_reason": "stop"}]})
+
+    monkeypatch.setattr(enrollment.urllib.request, "urlopen", fake_urlopen)
+    assert enrollment._request_completion("https://relay.example/v1", "secret-key", "m", "p", None, "openai") == "1 2 3"
+    assert captured == {"url": "https://relay.example/v1/chat/completions", "auth": "Bearer secret-key"}
+
+
+def test_request_completion_parses_anthropic_messages_response(monkeypatch):
+    monkeypatch.setattr(
+        enrollment.urllib.request,
+        "urlopen",
+        lambda request, timeout: _FakeHTTPResponse({"content": [{"type": "text", "text": "4 5 6"}], "stop_reason": "end_turn"}),
+    )
+    assert enrollment._request_completion("https://relay.example/v1", "secret-key", "m", "p", None, "anthropic") == "4 5 6"
+
+
+def test_request_completion_retries_retryable_http_error(monkeypatch):
+    calls = {"count": 0}
+
+    error = enrollment.urllib.error.HTTPError(
+        "https://relay.example/v1/chat/completions", 503, "busy", {}, None,
+    )
+
+    def fake_urlopen(request, timeout):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            error.fp = type("_Body", (), {"read": lambda self: b"temporary"})()
+            raise error
+        return _FakeHTTPResponse({"choices": [{"message": {"content": "7 8 9"}, "finish_reason": "stop"}]})
+
+    monkeypatch.setattr(enrollment.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(enrollment.time, "sleep", lambda seconds: None)
+    assert enrollment._request_completion("https://relay.example/v1", "secret-key", "m", "p", None, "openai") == "7 8 9"
+    assert calls["count"] == 2
