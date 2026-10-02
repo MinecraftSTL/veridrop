@@ -56,7 +56,7 @@ MODELTRACE_MODEL=
 
 源码来自 [xqy2006/ModelTrace](https://github.com/xqy2006/ModelTrace)，完整上游快照位于 `third_party/ModelTrace/`，保留上游 `LICENSE`、README、数据文件和插件文件。上游许可证为 MIT，版权归上游作者。Veridrop 的适配、任务、报告和页面代码位于 `src/relay_detector/modeltrace/`、`web/` 和 `web/templates/`。
 
-本工作树使用用户提供的 `ModelTrace-main.zip`。归档不包含 Git 元数据，因此当前 `source_revision` 明确记载“无法从 ZIP 恢复 Git commit”；不能将此源码快照声称为已保留完整 Git subtree 历史。
+本工作树使用用户提供的 `ModelTrace-main.zip`。通过 GitHub API 将 ZIP 中 `enrollment.py`、`fingerprint.py`、`bank_builder.py`、`unified_bank.json`、README 和 LICENSE 的 Git blob 与上游提交核对，确定对应提交为 `d4131b30243dfa05e70180b5eedde742103f1d73`。ZIP 本身不包含 Git 元数据，因此本地仍是可审查源码快照，不是保留上游完整提交图的 subtree 历史。
 
 ## 未验证范围
 
