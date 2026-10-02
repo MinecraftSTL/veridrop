@@ -7,11 +7,20 @@
   <div class="spinner" aria-hidden="true"></div>
   <h2 id="status-headline">正在检测中…</h2>
   <p class="muted">
+    {% if job.test_method == 'modeltrace' %}
+    预期模型:<code>{{ job.target_model }}</code> · 测试方式 <code>ModelTrace 自动归因</code><br/>
+    接口:<code>{{ job.base_url }}</code>
+    {% else %}
     目标模型:<code>{{ job.target_model }}</code> · 检测深度 <code>{{ job.mode }}</code><br/>
     中转站:<code>{{ job.base_url }}</code>
+    {% endif %}
   </p>
   <p class="muted">
+    {% if job.test_method == 'modeltrace' %}
+    ModelTrace 会自动识别 OpenAI Chat Completions 或 Anthropic Messages 格式，最多尝试 6 次以获取 3 份有效回答。本页面会自动刷新。
+    {% else %}
     完整模式会并行发起 13 次接口请求,通常 90 秒内完成。本页面会自动刷新——你也可以保存本网址稍后再来查看结果。
+    {% endif %}
   </p>
   <p class="form-error" id="run-error" hidden></p>
 </section>

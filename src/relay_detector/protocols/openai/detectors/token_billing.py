@@ -530,11 +530,11 @@ def _write_reference_cache(cache: dict[str, Any]) -> None:
 
 
 def _openai_api_key() -> str | None:
-    # Unit tests must never make live OpenAI calls just because a developer or
-    # server has OPENAI_API_KEY configured.
+    # Unit tests must never make live calls just because a developer or
+    # server has API_KEY configured.
     if os.environ.get("PYTEST_CURRENT_TEST"):
         return None
-    key = os.environ.get("OPENAI_API_KEY")
+    key = os.environ.get("API_KEY")
     if key:
         return key
     for path in (Path.cwd() / ".env", Path("/opt/veridrop/.env")):
@@ -544,7 +544,7 @@ def _openai_api_key() -> str | None:
                 if not line or line.startswith("#") or "=" not in line:
                     continue
                 name, _, value = line.partition("=")
-                if name.strip() == "OPENAI_API_KEY":
+                if name.strip() == "API_KEY":
                     value = value.strip().strip('"').strip("'")
                     return value or None
         except OSError:

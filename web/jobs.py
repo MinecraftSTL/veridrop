@@ -65,6 +65,7 @@ _SEMA = asyncio.Semaphore(_MAX_INFLIGHT)
 class Job:
     id: str
     protocol: str = "anthropic"
+    test_method: str = "protocol"
     status: JobStatus = "queued"
     base_url: str = ""
     target_model: str = ""
@@ -94,6 +95,7 @@ async def submit(
     protocol: str = "anthropic",
     include_long_context: bool = False,
     include_long_context_extreme: bool = False,
+    test_method: str = "protocol",
 ) -> str:
     """Queue a detection job and return the job id immediately.
 
@@ -110,6 +112,7 @@ async def submit(
     job = Job(
         id=job_id,
         protocol=protocol,
+        test_method=test_method,
         base_url=base_url,
         target_model=model,
         mode=mode,
@@ -120,6 +123,7 @@ async def submit(
         _run(
             job_id, base_url, api_key, model, mode, protocol,
             include_long_context, include_long_context_extreme,
+            test_method,
         )
     )
     return job_id
@@ -146,6 +150,7 @@ async def get(job_id: str) -> Job | None:
         id=job_id,
         status="done",
         protocol=report.get("protocol", "anthropic"),
+        test_method=report.get("test_method", "protocol"),
         base_url=report.get("base_url", ""),
         target_model=report.get("target_model", ""),
         mode=report.get("mode", "full"),
@@ -173,6 +178,7 @@ def _report_candidates(job_id: str) -> list[Path]:
         JOBS_DIR / "anthropic" / f"{job_id}.json",
         JOBS_DIR / "openai" / f"{job_id}.json",
         JOBS_DIR / "gemini" / f"{job_id}.json",
+        JOBS_DIR / "modeltrace" / f"{job_id}.json",
     ]
 
 
@@ -185,6 +191,7 @@ async def _run(
     protocol: str,
     include_long_context: bool = False,
     include_long_context_extreme: bool = False,
+    test_method: str = "protocol",
 ) -> None:
     async with _SEMA:
         async with _LOCK:
@@ -195,6 +202,50 @@ async def _run(
             j.started_at = time.time()
 
         try:
+            if test_method == "modeltrace":
+                result = await _run_modeltrace(base_url, api_key, model)
+                report_dict = {
+                    "test_method": "modeltrace",
+                    "protocol": "modeltrace",
+                    "base_url": base_url,
+                    "api_key_masked": mask_api_key(api_key),
+                    "target_model": model,
+                    "expected_model": model,
+                    "mode": "automatic",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "prediction": result.get("prediction"),
+                    "prediction_name": result.get("prediction_name"),
+                    "probability": result.get("probability"),
+                    "family_prediction": result.get("family_prediction"),
+                    "family_prediction_name": result.get("family_prediction_name"),
+                    "family_probability": result.get("family_probability"),
+                    "family_probabilities": result.get("family_probabilities", []),
+                    "used_outputs": result.get("used_outputs", 0),
+                    "results": result.get("results", []),
+                    "diagnostics": result.get("diagnostics", []),
+                    "calibration": result.get("calibration", {}),
+                    "method": result.get("method", ""),
+                    "api_test": result.get("api_test", {}),
+                    "source": result.get("source", ""),
+                    "source_revision": result.get("source_revision", ""),
+                    "source_commit": result.get("source_commit"),
+                    "license": result.get("license", "MIT"),
+                    "summary": "ModelTrace 自动归因结果",
+                    "run_error": result.get("run_error"),
+                }
+                report_path(job_id, "modeltrace").write_text(
+                    json.dumps(report_dict, indent=2, ensure_ascii=False),
+                    encoding="utf-8",
+                )
+                async with _LOCK:
+                    if job_id in _JOBS:
+                        _JOBS[job_id].status = "done"
+                        _JOBS[job_id].protocol = "modeltrace"
+                        _JOBS[job_id].test_method = "modeltrace"
+                        _JOBS[job_id].report = report_dict
+                        _JOBS[job_id].finished_at = time.time()
+                return
+
             cfg = ExecutionConfig.for_mode(Mode(mode), max_concurrent=3)
             cfg.include_long_context = include_long_context
             cfg.include_long_context_extreme = include_long_context_extreme
@@ -348,3 +399,9 @@ async def _run_gemini(
     async with make_client(base_url, api_key, timeout=cfg.request_timeout_s) as client:
         runner = build_runner(client, build_detectors(cfg.mode), cfg)
         return await runner.run(model)
+
+
+async def _run_modeltrace(base_url: str, api_key: str, model: str) -> dict[str, Any]:
+    from relay_detector.modeltrace import run_modeltrace
+
+    return await run_modeltrace(base_url, api_key, model)

@@ -210,6 +210,8 @@ def aggregate() -> tuple[list[RelayStats], dict[str, int]]:
             report = _load_report(json_path)
             if not report:
                 continue
+            if report.get("test_method") == "modeltrace":
+                continue
             domain = _extract_domain(report.get("base_url", ""))
             if not domain:
                 continue
@@ -313,6 +315,8 @@ def aggregate_one(domain: str) -> tuple[RelayStats, list[JobEntry]] | None:
         for json_path in dir_path.glob("*.json"):
             report = _load_report(json_path)
             if not report:
+                continue
+            if report.get("test_method") == "modeltrace":
                 continue
             if _extract_domain(report.get("base_url", "")) != domain:
                 continue

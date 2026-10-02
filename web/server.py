@@ -18,7 +18,7 @@ from fastapi.responses import (
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import jobs, leaderboard
+from . import jobs, leaderboard, modeltrace_history
 from .faq_data import FAQ_CATEGORIES, faqpage_jsonld, total_question_count
 from .image_report import render_report_jpg
 from .probe import probe_model_alive, probe_relay
@@ -101,16 +101,20 @@ WISHLIST_PATH = Path(
 # protocol.
 _ENV_DEFAULTS = {
     "anthropic": {
-        "base_url": os.environ.get("ANTHROPIC_BASE_URL", "").strip(),
+        "base_url": os.environ.get("BASE_URL", "").strip(),
         "model": os.environ.get("ANTHROPIC_MODEL", "").strip(),
     },
     "openai": {
-        "base_url": os.environ.get("OPENAI_BASE_URL", "").strip(),
+        "base_url": os.environ.get("BASE_URL", "").strip(),
         "model": os.environ.get("OPENAI_MODEL", "").strip(),
     },
     "gemini": {
-        "base_url": os.environ.get("GEMINI_BASE_URL", "").strip(),
+        "base_url": os.environ.get("BASE_URL", "").strip(),
         "model": os.environ.get("GEMINI_MODEL", "").strip(),
+    },
+    "modeltrace": {
+        "base_url": os.environ.get("BASE_URL", "").strip(),
+        "model": os.environ.get("MODELTRACE_MODEL", "").strip(),
     },
 }
 
@@ -200,6 +204,27 @@ async def gemini_index(request: Request) -> HTMLResponse:
             "default_base_url": _env_default("gemini", "base_url"),
             "default_model": _env_default("gemini", "model"),
         },
+    )
+
+
+@app.get("/modeltrace", response_class=HTMLResponse)
+async def modeltrace_index(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "modeltrace.html",
+        {
+            "default_base_url": _env_default("modeltrace", "base_url"),
+            "default_model": _env_default("modeltrace", "model"),
+        },
+    )
+
+
+@app.get("/modeltrace/leaderboard", response_class=HTMLResponse)
+async def modeltrace_history_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "modeltrace_history.html",
+        {"entries": modeltrace_history.list_entries()},
     )
 
 
@@ -572,6 +597,36 @@ async def api_detect_gemini(
     return JSONResponse({"job_id": job_id, "status_url": f"/api/status/{job_id}"})
 
 
+@app.post("/api/detect/modeltrace")
+async def api_detect_modeltrace(
+    base_url: str = Form(""),
+    api_key: str = Form(...),
+    model: str = Form(""),
+) -> JSONResponse:
+    base_url = base_url.strip() or _env_default("modeltrace", "base_url")
+    api_key = api_key.strip()
+    model = model.strip() or _env_default("modeltrace", "model")
+
+    if not base_url.startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="base_url must start with http(s)://")
+    if not api_key or len(api_key) < 8 or len(api_key) > 4096:
+        raise HTTPException(status_code=400, detail="api_key looks invalid")
+    if len(base_url) > 4096:
+        raise HTTPException(status_code=400, detail="base_url is too long")
+    if not model or len(model) > 200:
+        raise HTTPException(status_code=400, detail="model must be 1-200 chars")
+
+    job_id = await jobs.submit(
+        base_url,
+        api_key,
+        model,
+        "automatic",
+        protocol="modeltrace",
+        test_method="modeltrace",
+    )
+    return JSONResponse({"job_id": job_id, "status_url": f"/api/status/{job_id}"})
+
+
 @app.get("/api/status/{job_id}")
 async def api_status(job_id: str) -> JSONResponse:
     j = await jobs.get(job_id)
@@ -580,6 +635,7 @@ async def api_status(job_id: str) -> JSONResponse:
     payload = {
         "job_id": j.id,
         "protocol": j.protocol,
+        "test_method": j.test_method,
         "status": j.status,
         "base_url": j.base_url,
         "target_model": j.target_model,
@@ -652,6 +708,21 @@ def _seo_meta_for_report(report: dict) -> dict[str, str]:
     if "://" in base_url:
         domain = base_url.split("://", 1)[1].split("/", 1)[0]
     domain = domain or "中转站"
+
+    if report.get("test_method") == "modeltrace":
+        expected = str(report.get("expected_model") or report.get("target_model") or "")
+        predicted = str(report.get("prediction_name") or "无法判断")
+        probability = float(report.get("probability") or 0) * 100
+        title = f"{domain} ModelTrace 归因：{predicted} {probability:.1f}% | Veridrop"
+        description = (
+            f"ModelTrace 自动归因报告：预期模型 {expected}，最可能模型 {predicted}，"
+            f"统一库概率 {probability:.1f}%。该概率不属于 Veridrop 协议评分。"
+        )
+        return {
+            "seo_title": title[:155],
+            "seo_description": description[:160],
+            "seo_og_description": description[:155],
+        }
 
     protocol = str(report.get("protocol") or "anthropic")
     proto_label = _PROTOCOL_LABELS.get(protocol, protocol)
@@ -759,6 +830,8 @@ _STATIC_SITEMAP_URLS = [
     (f"{SITE_URL}/claude",      "weekly",  "0.9",  "index.html"),
     (f"{SITE_URL}/openai",      "weekly",  "0.9",  "openai.html"),
     (f"{SITE_URL}/gemini",      "weekly",  "0.9",  "gemini.html"),
+    (f"{SITE_URL}/modeltrace",  "weekly",  "0.9",  "modeltrace.html"),
+    (f"{SITE_URL}/modeltrace/leaderboard", "daily", "0.7", "modeltrace_history.html"),
     (f"{SITE_URL}/leaderboard", "daily",   "0.85", "leaderboard.html"),
     (f"{SITE_URL}/faq",         "monthly", "0.8",  "faq.html"),
 ]
@@ -767,6 +840,7 @@ _SITEMAP_REPORT_DIRS = [
     jobs.JOBS_DIR / "anthropic",
     jobs.JOBS_DIR / "openai",
     jobs.JOBS_DIR / "gemini",
+    jobs.JOBS_DIR / "modeltrace",
     jobs.JOBS_DIR,  # legacy top-level
 ]
 
@@ -897,6 +971,8 @@ _DETECTOR_DISPLAY = {
 
 def _result_rows(report: dict) -> list[dict]:
     """Flatten results into the order/labels the result template expects."""
+    if report.get("test_method") == "modeltrace":
+        return []
     by_name = {
         r.get("name"): r for r in report.get("results") or []
         if isinstance(r, dict)
