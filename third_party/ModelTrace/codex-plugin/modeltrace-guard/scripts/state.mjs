@@ -1,0 +1,376 @@
+import { createHash, randomInt, randomUUID } from 'node:crypto';
+import { mkdir, open, readFile, rename, unlink } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import path from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
+import { LANGUAGES } from './prompts.mjs';
+import { compactHistory } from './history.mjs';
+import { removeSnapshot } from './fork-snapshot.mjs';
+export { validateNumbers } from './probe-output.mjs';
+
+export const DEFAULTS = Object.freeze({
+  mode: 'tools', toolMin: 16, toolMax: 32, retryCount: 3,
+  pendingSeconds: 180,
+  languages: ['zh', 'en'],
+});
+export const WARNING = 'Closed-set fingerprint evidence for a fork continuation; not backend authentication. Frozen-rollout and multilingual error rates have not been independently measured.';
+export const digest = (value) => createHash('sha256').update(value).digest('hex');
+
+export function validateConfig(patch = {}, previous = DEFAULTS) {
+  // Migrate retired time triggers and probe-count limits without altering evidence.
+  const { secondsMin, secondsMax, maxPerTurn, maxPerSession, ...base } = previous;
+  const config = { ...DEFAULTS, ...base, mode: 'tools', ...patch };
+  for (const key of Object.keys(config)) if (!Object.hasOwn(DEFAULTS, key)) throw new Error(`Unknown frequency option: ${key}`);
+  if (config.mode !== 'tools') throw new Error('Only tool-call frequency is supported; use --tool-min and --tool-max');
+  if (!Array.isArray(config.languages) || !config.languages.length || new Set(config.languages).size !== config.languages.length || config.languages.some((code) => !LANGUAGES.includes(code))) throw new Error(`languages must be distinct codes from ${LANGUAGES.join(',')}`);
+  for (const key of Object.keys(DEFAULTS).filter((key) => !['mode', 'languages'].includes(key))) {
+    if (!Number.isSafeInteger(config[key]) || config[key] < 1 || config[key] > 1000000) throw new Error(`${key} must be an integer in 1..1000000`);
+  }
+  if (config.toolMin > config.toolMax) throw new Error('Minimum interval exceeds maximum');
+  if (config.retryCount > 100) throw new Error('retryCount must be an integer in 1..100');
+  return config;
+}
+
+export function newState(session, now = Date.now()) {
+  return {
+    schema: 2, session, enabled: false, createdAt: now, config: { ...DEFAULTS }, taskName: null, codexTaskName: null, workspaceName: null,
+    epoch: 0, model: null, expected: null, expectedSource: 'auto', turn: null,
+    issued: 0, turnIssued: 0, workTools: 0, lastHookAt: null, hooksSeen: 0,
+    lastSampleAt: null, maxObservedGapSeconds: 0, missed: 0, pending: null,
+    seenTools: [], retiredTurns: [], stopTurn: null, forceProbe: false, samples: [], events: [], alerts: [],
+    nextTools: null, nextAt: null, lastOutcome: 'not_started', confirmation: null, taskHalt: null,
+    samplingMode: 'fork', forkSnapshot: null, probeRun: null, runtimeStartedAt: null, lastWorkHookAt: null, runtimeEndedAt: null,
+    runtimePaused: false, lastBackgroundHookAt: null,
+  };
+}
+
+export function record(state, type, now, details = {}) {
+  state.events.push({ at: now, epoch: state.epoch, type, ...details });
+}
+
+export function setTaskName(state, name, now = Date.now()) {
+  if (typeof name !== 'string' || !name.trim() || name.trim().length > 120 || /[\x00-\x1f\x7f]/.test(name)) throw new Error('任务名称需为 1–120 个字符，不能包含换行或控制字符');
+  const clean = name.trim();
+  if (state.taskName !== clean) {
+    state.taskName = clean;
+    record(state, 'task_name_changed', now, { name: clean });
+  }
+}
+
+// A Codex title is display metadata, never an instruction or monitoring opt-in.
+// Keep it separate from a name the user explicitly chose in this dashboard.
+export function setCodexTaskName(state, name, now = Date.now()) {
+  if (typeof name !== 'string' || !name.trim() || name.trim().length > 120 || /[\x00-\x1f\x7f]/.test(name)) return;
+  const clean = name.trim();
+  if (state.codexTaskName !== clean) {
+    state.codexTaskName = clean;
+    record(state, 'codex_task_name_updated', now, { name: clean });
+  }
+}
+
+export function workspaceName(cwd) {
+  if (typeof cwd !== 'string' || cwd.length > 4096 || /[\x00-\x1f\x7f]/.test(cwd)) return null;
+  return cwd.split(/[\\/]/).filter(Boolean).at(-1)?.slice(0, 120) || null;
+}
+
+// Legacy records conflated a missing comparison label with a label absent from
+// the reference bank. Clarify presentation without modifying historical evidence.
+export function displayOutcome(sample) {
+  return sample?.outcome === 'unknown_expected_model' && !sample.expected ? 'missing_expected_model' : sample?.outcome;
+}
+
+export function publicSample(sample) {
+  const { numbers, ...metadata } = sample;
+  return { ...metadata, displayOutcome: displayOutcome(sample) };
+}
+
+export function currentOutcome(state) {
+  return state.lastOutcome === 'budget_paused' ? state.samples.at(-1)?.outcome || 'insufficient_evidence' : state.lastOutcome;
+}
+
+export function schedule(state, now, draw = randomInt) {
+  state.nextTools = state.workTools + draw(state.config.toolMin, state.config.toolMax + 1);
+  state.nextAt = null;
+}
+
+export function isDue(state, now) {
+  if (state.forceProbe) return true;
+  return state.nextTools !== null && state.workTools >= state.nextTools;
+}
+
+export function isMismatch(sample) {
+  return Boolean(sample.expected && sample.prediction && sample.expected !== sample.prediction && Number.isFinite(sample.expectedWeight)
+    && !['missing_expected_model', 'unknown_expected_model'].includes(sample.outcome));
+}
+
+export function interruptConfirmation(state, now, reason) {
+  if (state.confirmation?.status !== 'active') return;
+  state.confirmation.status = 'interrupted';
+  state.confirmation.reason = reason;
+  state.confirmation.finishedAt = now;
+  record(state, 'confirmation_interrupted', now, { confirmation: state.confirmation.id, reason });
+}
+
+// The initial mismatch is NOT one of the configured retries. Each accepted
+// retry belongs to one immutable comparison segment and cannot spawn a new batch.
+export function updateConfirmation(state, sample, checkpoint, now) {
+  if (checkpoint.confirmationId) {
+    const batch = state.confirmation;
+    if (!batch || batch.status !== 'active' || batch.id !== checkpoint.confirmationId) return;
+    if (batch.epoch !== sample.epoch || batch.expected !== sample.expected || batch.model !== sample.reportedModel || batch.language !== sample.language || batch.bankSha256 !== sample.bankSha256) {
+      interruptConfirmation(state, now, 'comparison_changed'); return;
+    }
+    if (batch.snapshotSha256 && sample.fork?.snapshot?.sha256 !== batch.snapshotSha256) {
+      interruptConfirmation(state, now, 'snapshot_changed'); return;
+    }
+    if (!sample.expected || !sample.prediction || !Number.isFinite(sample.expectedWeight) || ['missing_expected_model', 'unknown_expected_model'].includes(sample.outcome)) {
+      interruptConfirmation(state, now, 'comparison_unavailable'); return;
+    }
+    batch.results.push({ challenge: sample.challenge, at: sample.at, prediction: sample.prediction, mismatch: isMismatch(sample) });
+    record(state, 'confirmation_result', now, { confirmation: batch.id, retryIndex: batch.results.length, target: batch.target, mismatch: isMismatch(sample) });
+    if (batch.results.length === batch.target) {
+      batch.status = 'completed'; batch.finishedAt = now;
+      batch.allMismatch = batch.results.every((result) => result.mismatch);
+      record(state, 'confirmation_completed', now, { confirmation: batch.id, target: batch.target, allMismatch: batch.allMismatch });
+      if (batch.allMismatch) {
+        state.taskHalt = { id: batch.id, at: now, expected: batch.expected, retryCount: batch.target, predictions: batch.results.map((result) => result.prediction), alertId: sample.challenge };
+        record(state, 'task_halt_requested', now, { ...state.taskHalt });
+      }
+    }
+    return;
+  }
+  if (!isMismatch(sample) || state.taskHalt || state.confirmation?.status === 'active') return;
+  state.confirmation = {
+    id: sample.challenge, status: 'active', startedAt: now, epoch: sample.epoch,
+    expected: sample.expected, model: sample.reportedModel, language: sample.language,
+    count: checkpoint.count, bankSha256: sample.bankSha256, target: state.config.retryCount, results: [],
+    snapshotSha256: sample.fork?.snapshot?.sha256 || null,
+  };
+  record(state, 'confirmation_started', now, { confirmation: sample.challenge, target: state.config.retryCount, language: sample.language });
+}
+
+export function setTurn(state, turn) {
+  if (turn && state.turn !== turn) {
+    // Background hook processes can reach the state lock out of order. A late
+    // completion from a known older turn must not roll model metadata backward.
+    if (state.retiredTurns?.includes(turn)) return false;
+    const firstBinding = state.turn === null;
+    if (!firstBinding) state.retiredTurns = [...(state.retiredTurns || []).slice(-63), state.turn];
+    state.turn = turn;
+    if (!firstBinding) state.turnIssued = 0;
+    state.stopTurn = null;
+  }
+  return true;
+}
+
+export function abandon(state, now, reason) {
+  if (!state.pending) return;
+  if (state.pending.confirmationId) interruptConfirmation(state, now, reason);
+  record(state, 'probe_missed', now, { challenge: state.pending.id, reason });
+  state.missed += 1;
+  state.pending = null;
+  state.lastOutcome = 'coverage_gap';
+}
+
+export function segment(state, now, reason, draw = randomInt) {
+  abandon(state, now, reason);
+  interruptConfirmation(state, now, reason);
+  state.epoch += 1;
+  state.lastOutcome = 'insufficient_evidence';
+  state.forceProbe = true;
+  record(state, 'segment_started', now, { reason, model: state.model, expected: state.expected });
+  schedule(state, now, draw);
+}
+
+export function expirePending(state, now) {
+  if (!state.pending) return false;
+  // Parallel tool completions may all arrive before the model gets a continuation.
+  // Never infer refusal/ignore just from their count.
+  if (now >= state.pending.expiresAt) {
+    abandon(state, now, 'expired_or_ignored');
+    // Do not immediately force another probe: avoid loops if the model is refusing probes.
+    schedule(state, now);
+    return true;
+  }
+  return false;
+}
+
+export function issue(state, now, draw = randomInt) {
+  const batch = state.confirmation?.status === 'active' ? state.confirmation : null;
+  if (!state.enabled || state.taskHalt || state.compacting || state.runtimeEndedAt || state.runtimePaused || state.pending || (!batch && !isDue(state, now))) return null;
+  // The agent must notify the user and acknowledge the alert before a retry is
+  // issued. Retries are bounded by their batch target, not per-turn/task limits.
+  if (batch && (state.alerts || []).some((alert) => !alert.acknowledgedAt)) return null;
+  state.pending = {
+    id: randomUUID(), epoch: state.epoch, model: state.model, expected: state.expected,
+    count: batch ? batch.count : draw(292, 333), at: now, expiresAt: now + state.config.pendingSeconds * 1000,
+    language: batch ? batch.language : state.config.languages[draw(0, state.config.languages.length)],
+    workTools: state.workTools,
+    ...(batch ? { confirmationId: batch.id, retryIndex: batch.results.length + 1, retryTarget: batch.target } : {}),
+  };
+  state.forceProbe = false;
+  state.issued += 1;
+  state.turnIssued += 1;
+  record(state, 'probe_issued', now, { challenge: state.pending.id, count: state.pending.count, language: state.pending.language });
+  schedule(state, now, draw);
+  return state.pending;
+}
+
+export function classifySample(result, expected, previous = []) {
+  const candidate = result.results.find((item) => item.model === expected);
+  const top = result.results[0];
+  let outcome = 'inconclusive';
+  if (!expected) outcome = 'missing_expected_model';
+  else if (!candidate) outcome = 'unknown_expected_model';
+  else if (top.model === expected && top.probability >= 0.5) outcome = 'compatible';
+  else if (top.model !== expected && top.probability >= 0.8 && candidate.probability <= 0.15 && top.probability - candidate.probability >= 0.65) outcome = 'difference_signal';
+  const recent = [...previous.slice(-2), { prediction: top.model, outcome }];
+  if (outcome === 'difference_signal' && recent.filter((sample) => sample.prediction === top.model && ['difference_signal', 'repeated_difference'].includes(sample.outcome)).length >= 2) outcome = 'repeated_difference';
+  return { outcome, prediction: top.model, closedSetWeight: top.probability, expectedWeight: candidate?.probability ?? null };
+}
+
+export function recentComparable(state, pending) {
+  // A same-language hit must also be one of the last TWO physical checkpoints,
+  // not a stale matching-language hit from many hours earlier.
+  return state.samples.filter((sample) => sample.epoch === state.epoch).slice(-2).filter((sample) => sample.language === pending.language);
+}
+
+export function dataDirectory(override, env = process.env) {
+  // Stable across plugin reinstalls and the hook / normal-shell environment difference.
+  // PLUGIN_DATA is deliberately not used: normal task shell commands may not inherit it.
+  return path.resolve(override || env.MODELTRACE_GUARD_DATA || path.join(homedir(), '.codex', 'modeltrace-guard'));
+}
+
+export function sessionPath(directory, session) { return path.join(directory, `${digest(session)}.json`); }
+
+export async function readState(directory, session) {
+  try {
+    const state = JSON.parse(await readFile(sessionPath(directory, session), 'utf8'));
+    if (![1, 2].includes(state.schema) || state.session !== session) throw new Error('State schema/session mismatch');
+    return state;
+  } catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+}
+
+export const STATE_LOCK_TIMEOUT_MS = 1200;
+// Background hook processes may queue behind a burst of fsynced state writes.
+// This wait budget never changes how long a foreground hook waits for the lock.
+export const BACKGROUND_STATE_LOCK = Object.freeze({ lockTimeoutMs: 10000 });
+
+const windowsFileBusy = (error, platform) => platform === 'win32' && ['EPERM', 'EACCES', 'EBUSY'].includes(error.code);
+
+export async function attemptStateLock(lockname, { platform = process.platform, openFile = open } = {}) {
+  try { return { lock: await openFile(lockname, 'wx', 0o600) }; }
+  catch (error) {
+    // A just-unlinked Windows lease can be delete-pending rather than absent;
+    // exclusive open then returns EPERM/EACCES, not necessarily EEXIST.
+    if (error.code === 'EEXIST' || windowsFileBusy(error, platform)) return { error };
+    throw error;
+  }
+}
+
+export async function replaceStateFile(temporary, filename, { timeoutMs = 1000, platform = process.platform, replace = rename } = {}) {
+  if (!Number.isFinite(timeoutMs) || timeoutMs < 0 || timeoutMs > 1000) throw new Error('replacement timeoutMs must be a number in 0..1000');
+  const deadline = performance.now() + timeoutMs;
+  for (;;) {
+    try { await replace(temporary, filename); return; }
+    catch (error) {
+      if (!windowsFileBusy(error, platform)) throw error;
+      const remaining = deadline - performance.now();
+      if (remaining <= 0) {
+        const busy = new Error(`State busy; retry. Atomic state replacement remained unavailable: ${filename}`, { cause: error });
+        busy.code = 'MODELTRACE_STATE_BUSY'; busy.operation = 'commit';
+        throw busy;
+      }
+      // Windows readers/scanners can briefly prevent replacement. Keep both
+      // files intact and retain our writer lease; never unlink the old state.
+      await delay(Math.min(remaining, randomInt(10, 31)));
+    }
+  }
+}
+
+export async function withState(directory, session, callback, { lockTimeoutMs = STATE_LOCK_TIMEOUT_MS } = {}) {
+  if (!Number.isSafeInteger(lockTimeoutMs) || lockTimeoutMs < 0 || lockTimeoutMs > 60000) throw new Error('lockTimeoutMs must be an integer in 0..60000');
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  const filename = sessionPath(directory, session);
+  const lockname = `${filename}.lock`;
+  let lock;
+  const deadline = performance.now() + lockTimeoutMs;
+  while (!lock) {
+    const attempt = await attemptStateLock(lockname);
+    lock = attempt.lock;
+    if (lock) break;
+    if (attempt.error.code === 'EEXIST' && await reapDeadLock(lockname)) continue;
+    const remaining = deadline - performance.now();
+    if (remaining <= 0) {
+      const busy = new Error(`State busy; retry. Timed out after ${lockTimeoutMs}ms waiting for task state: ${lockname}`, { cause: attempt.error });
+      busy.code = 'MODELTRACE_STATE_BUSY'; busy.lockTimeoutMs = lockTimeoutMs;
+      throw busy;
+    }
+    // Avoid synchronized contenders repeatedly waking on the same 30ms tick.
+    await delay(Math.min(remaining, randomInt(20, 51)));
+  }
+  const temporary = `${filename}.${process.pid}.${randomUUID()}.tmp`;
+  try {
+    // Initialization is covered by cleanup too; a failed write/fsync must not
+    // leave an empty lease owned by this still-running process.
+    await lock.writeFile(JSON.stringify({ pid: process.pid, nonce: randomUUID(), at: Date.now() }));
+    await lock.sync();
+    const state = await readState(directory, session) || newState(session);
+    if (state.samplingMode !== 'fork') {
+      abandon(state, Date.now(), 'migrated_to_fork');
+      interruptConfirmation(state, Date.now(), 'migrated_to_fork');
+      state.samplingMode = 'fork';
+      record(state, 'sampling_mode_migrated', Date.now(), { mode: 'fork' });
+    }
+    const config = validateConfig({}, state.config);
+    if (JSON.stringify(config) !== JSON.stringify(state.config) || state.lastOutcome === 'budget_paused') {
+      const previous = state.config;
+      const previousOutcome = state.lastOutcome;
+      state.lastOutcome = currentOutcome(state);
+      state.config = config; state.nextAt = null;
+      delete state.budgetNoticeSent;
+      record(state, 'configuration_migrated', Date.now(), { previous, config: { ...config }, previousOutcome });
+    }
+    const result = await callback(state);
+    if (state.forkSnapshot && (!state.probeRun || !processAlive(state.probeRun.pid))
+      && (!state.enabled || state.taskHalt || (state.confirmation?.status !== 'active' && !state.pending))) {
+      state.forkCleanup = { id: state.forkSnapshot.id, status: 'pending', at: Date.now() };
+      await removeSnapshot(directory, state.forkSnapshot); state.forkSnapshot = null;
+    }
+    await compactHistory(state, directory);
+    const file = await open(temporary, 'wx', 0o600);
+    try { await file.writeFile(JSON.stringify(state, null, 2) + '\n'); await file.sync(); }
+    finally { await file.close(); }
+    // Replacement retries consume only the remaining wait budget (and at
+    // most one second), including on the synchronous foreground path.
+    await replaceStateFile(temporary, filename, { timeoutMs: Math.max(0, Math.min(1000, deadline - performance.now())) });
+    return result;
+  } finally {
+    try { await unlink(temporary).catch((error) => { if (error.code !== 'ENOENT') throw error; }); }
+    finally {
+      try { await lock.close(); }
+      finally { await unlink(lockname); }
+    }
+  }
+}
+
+export function processAlive(pid) {
+  if (!Number.isSafeInteger(pid) || pid < 1) return true;
+  try { process.kill(pid, 0); return true; } catch (error) { return error.code !== 'ESRCH'; }
+}
+
+export async function reapDeadLock(filename) {
+  let bytes, owner;
+  try { bytes = await readFile(filename, 'utf8'); owner = JSON.parse(bytes); } catch { return false; }
+  // No age-only stealing. Empty/legacy locks and inaccessible PIDs are uncertain.
+  if (typeof owner.nonce !== 'string' || !Number.isSafeInteger(owner.pid) || processAlive(owner.pid)) return false;
+  const claimName = `${filename}.reap-${digest(bytes)}`;
+  let claim;
+  try { claim = await open(claimName, 'wx', 0o600); } catch (error) { if (error.code === 'EEXIST') return false; throw error; }
+  try {
+    // One reaper per old lease. Recheck after claiming, so a new owner's lease
+    // cannot be removed by a contender that observed the previous dead owner.
+    if (await readFile(filename, 'utf8').catch(() => null) !== bytes) return false;
+    await unlink(filename); return true;
+  } finally { await claim.close(); await unlink(claimName); }
+}

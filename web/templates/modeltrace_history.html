@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}ModelTrace 历史记录 · Veridrop{% endblock %}
+{% block description %}ModelTrace 自动归因测试历史记录。概率是统一候选库内的归因置信度，不是协议合规评分。{% endblock %}
+
+{% block content %}
+<section class="hub-hero">
+  <h1>ModelTrace 历史记录</h1>
+  <p class="hub-meta">按时间展示自动归因结果，不生成新的质量排名。</p>
+</section>
+
+<section class="card">
+  {% if entries %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>时间</th><th>接口</th><th>预期模型</th><th>最可能模型</th><th>统一库概率</th><th>模型家族</th><th>有效查询</th><th>报告</th></tr>
+      </thead>
+      <tbody>
+      {% for item in entries %}
+        <tr>
+          <td>{{ item.date_str }}</td>
+          <td><code>{{ item.domain }}</code></td>
+          <td><code>{{ item.expected_model }}</code></td>
+          <td>{{ item.prediction_name }}</td>
+          <td>{{ item.probability_percent }}</td>
+          <td>{{ item.family_prediction_name }}（{{ item.family_probability_percent }}）</td>
+          <td>{{ item.used_outputs }}/3</td>
+          <td><a href="/r/{{ item.job_id }}">查看</a></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">暂无 ModelTrace 自动归因报告。</p>
+  {% endif %}
+</section>
+
+<section class="card alert-card">
+  <strong>结果范围</strong>
+  ModelTrace 概率只表示统一候选库内的归因置信度，不参与 Veridrop 的协议评分和现有中转站红黑榜。
+</section>
+{% endblock %}

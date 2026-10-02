@@ -310,11 +310,88 @@ def _gemini_jpg_note(report: dict[str, Any]) -> str:
     return ""
 
 
+def _render_modeltrace_jpg(
+    report: dict[str, Any], site_url: str, report_url: str | None,
+) -> bytes:
+    """Render ModelTrace fields without using the protocol score layout."""
+    W, H = 1400, 1000
+    img = Image.new("RGB", (W, H), _BG)
+    d = ImageDraw.Draw(img)
+    title_font = _load_font(34, bold=True)
+    heading_font = _load_font(22, bold=True)
+    body_font = _load_font(18)
+    value_font = _load_font(24, bold=True)
+    d.text((60, 46), "ModelTrace 归因结果", fill=_TEXT, font=title_font)
+    pill = site_url.removeprefix("https://").removeprefix("http://")
+    pb = d.textbbox((0, 0), pill, font=body_font)
+    d.rounded_rectangle((W - 60 - (pb[2] - pb[0]) - 28, 48, W - 60, 84), radius=18, fill=_TEXT)
+    d.text((W - 74 - (pb[2] - pb[0]), 56), pill, fill=_BG, font=body_font)
+
+    expected = str(report.get("expected_model") or report.get("target_model") or "—")
+    prediction = str(report.get("prediction_name") or "无法判断")
+    probability = float(report.get("probability") or 0) * 100
+    family = str(report.get("family_prediction_name") or "无法判断")
+    family_probability = float(report.get("family_probability") or 0) * 100
+    used = int(report.get("used_outputs") or 0)
+    cards = [("预期模型", expected), ("最可能模型", prediction), ("统一库概率", f"{probability:.2f}%"),
+             ("模型家族", family), ("家族概率 / 有效查询", f"{family_probability:.2f}% / {used}/3")]
+    x0, y0, gap = 60, 130, 14
+    card_w = (W - 120 - gap * 4) // 5
+    for index, (label, value) in enumerate(cards):
+        x = x0 + index * (card_w + gap)
+        d.rounded_rectangle((x, y0, x + card_w, y0 + 120), radius=10, fill=_TILE_BG, outline=_LINE, width=1)
+        d.text((x + 16, y0 + 18), label, fill=_MUTED, font=_load_font(14))
+        clipped = value if len(value) <= 20 else value[:19] + "…"
+        d.text((x + 16, y0 + 62), clipped, fill=_TEXT, font=value_font)
+
+    d.text((60, 292), "候选模型概率表", fill=_TEXT, font=heading_font)
+    xcols = [60, 470, 850, 1080]
+    headers = ["模型", "家族", "概率", "相似度"]
+    for x, label in zip(xcols, headers):
+        d.text((x, 332), label, fill=_MUTED, font=body_font)
+    d.line((60, 365, W - 60, 365), fill=_LINE, width=1)
+    results = report.get("results") or []
+    for row_index, item in enumerate(results[:10]):
+        if not isinstance(item, dict):
+            continue
+        y = 382 + row_index * 42
+        model_name = str(item.get("display_name") or item.get("model") or "—")
+        family_name = str(item.get("family_name") or item.get("family") or "—")
+        p = float(item.get("probability") or 0) * 100
+        similarity = item.get("profile_similarity")
+        sim = f"{float(similarity):.4f}" if isinstance(similarity, (int, float)) else "—"
+        values = [model_name[:32], family_name[:20], f"{p:.2f}%", sim]
+        for x, value in zip(xcols, values):
+            d.text((x, y), value, fill=_TEXT, font=body_font)
+        d.line((60, y + 34, W - 60, y + 34), fill=_LINE, width=1)
+
+    api_test = report.get("api_test") or {}
+    received = int(api_test.get("received") or used)
+    attempted = int(api_test.get("attempted") or 0)
+    max_attempts = int(api_test.get("max_attempts") or 6)
+    d.text((60, 835), "自动请求诊断", fill=_TEXT, font=heading_font)
+    d.text((60, 872), f"有效回答 {received}/{api_test.get('requested') or 3} · 尝试 {attempted}/{max_attempts}", fill=_MUTED, font=body_font)
+    errors = api_test.get("errors") or []
+    if errors:
+        d.text((60, 910), f"最近错误：{str(errors[0])[:105]}", fill=_RED, font=body_font)
+    note = "ModelTrace 概率是统一候选库归因置信度，不属于 Veridrop 协议评分。"
+    d.text((60, H - 32), note, fill=_MUTED, font=_load_font(14))
+    if report_url:
+        d.text((W - 560, H - 32), report_url[:70], fill=_MUTED, font=_load_font(14))
+
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=92, optimize=True)
+    return buf.getvalue()
+
+
 def render_report_jpg(
     report: dict[str, Any], site_url: str = "https://veridrop.org",
     report_url: str | None = None,
 ) -> bytes:
     """Render the report into a JPG and return the bytes."""
+    if report.get("test_method") == "modeltrace":
+        return _render_modeltrace_jpg(report, site_url, report_url)
+
     W, H = 1400, 1000
     img = Image.new("RGB", (W, H), _BG)
     d = ImageDraw.Draw(img)

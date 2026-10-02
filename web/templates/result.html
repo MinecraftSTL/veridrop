@@ -45,6 +45,73 @@
 {% set score = report.total_score or 0 %}
 {% set verdict = report.verdict or 'failed' %}
 {% set protocol = report.protocol or 'anthropic' %}
+{% if report.test_method == 'modeltrace' %}
+<section class="result-head">
+  <div>
+    <h1>ModelTrace 归因结果</h1>
+    <p class="muted">
+      预期模型:<code>{{ report.expected_model or report.target_model }}</code> ·
+      接口:<code>{{ report.base_url }}</code>
+    </p>
+  </div>
+  <div class="result-actions">
+    <a class="btn btn-ghost" href="/r/{{ job_id }}.jpg" download="veridrop-{{ job_id }}.jpg">下载 JPG</a>
+    <button class="btn btn-ghost" id="share-btn" type="button">分享</button>
+  </div>
+</section>
+
+{% if report.run_error %}
+<section class="card alert-card"><strong>自动测试失败</strong> {{ report.run_error }}</section>
+{% endif %}
+
+<section class="metrics-row">
+  <div class="metric"><div class="metric-label">预期模型</div><div class="metric-value"><code>{{ report.expected_model or report.target_model or '—' }}</code></div></div>
+  <div class="metric"><div class="metric-label">最可能模型</div><div class="metric-value"><code>{{ report.prediction_name or '无法判断' }}</code></div></div>
+  <div class="metric"><div class="metric-label">统一库概率</div><div class="metric-value">{% if report.probability is defined and report.probability is not none %}{{ '%.2f' | format(report.probability * 100) }}%{% else %}无法判断{% endif %}</div></div>
+  <div class="metric"><div class="metric-label">模型家族</div><div class="metric-value"><code>{{ report.family_prediction_name or '无法判断' }}</code></div></div>
+  <div class="metric"><div class="metric-label">家族概率 / 有效查询</div><div class="metric-value">{% if report.family_probability is defined and report.family_probability is not none %}{{ '%.2f' | format(report.family_probability * 100) }}%{% else %}无法判断{% endif %} · {{ report.used_outputs or 0 }}/3</div></div>
+</section>
+<p class="muted small attribution"><a href="{{ report_url }}">{{ report_url }}</a> 生成</p>
+
+<section class="card">
+  <h2>候选模型概率表</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>模型</th><th>家族</th><th>概率</th><th>相似度</th></tr></thead>
+      <tbody>
+      {% for item in report.results or [] %}
+        <tr>
+          <td>{{ item.display_name or item.model }}</td>
+          <td>{{ item.family_name or item.family or '—' }}</td>
+          <td>{{ '%.2f' | format((item.probability or 0) * 100) }}%</td>
+          <td>{{ '%.4f' | format(item.profile_similarity or 0) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% set api_test = report.api_test or {} %}
+<section class="card">
+  <h2>自动请求诊断</h2>
+  <p class="muted">
+    已获得 {{ api_test.received or 0 }}/{{ api_test.requested or 3 }} 份有效回答，
+    实际尝试 {{ api_test.attempted or 0 }}/{{ api_test.max_attempts or 6 }} 次。
+  </p>
+  {% if api_test.errors %}
+  <ul class="plain-list">
+    {% for error in api_test.errors %}<li>{{ error }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+</section>
+
+<section class="card alert-card">
+  <strong>结果范围</strong>
+  ModelTrace 概率表示统一候选库内的归因置信度，不是 Veridrop 的协议合规分，也不参与现有中转站红黑榜。
+</section>
+
+{% else %}
 {# verdict drives both caption and color so any critical-issue downgrade
    applied in scorer.effective_verdict() is honored. The classification was
    previously score-driven, which let a 75% relay with detected impersonation
@@ -145,7 +212,7 @@
   <div class="metric{% if perf.ttft_ms and perf.ttft_ms > 2000 %} metric-warn{% endif %}">
     <div class="metric-label">首 TOKEN</div>
     <div class="metric-value" title="Time to first token,从发出请求到收到第一个真实 token 的时间(取所有流式请求的最小值)">
-      {% if perf.ttft_ms is not none %}{{ '{:,}'.format(perf.ttft_ms) }}ms{% else %}—{% endif %}
+      {% if perf.ttft_ms is defined and perf.ttft_ms is not none %}{{ '{:,}'.format(perf.ttft_ms) }}ms{% else %}—{% endif %}
     </div>
   </div>
   <div class="metric{% if (perf.total_latency_ms or 0) > 30000 %} metric-warn{% endif %}">
@@ -252,6 +319,8 @@
     {% endif %}
   </details>
 </section>
+
+{% endif %}
 
 <script>
 document.getElementById('share-btn').addEventListener('click', async () => {

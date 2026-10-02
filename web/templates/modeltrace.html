@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}ModelTrace 模型自动归因测试 · Veridrop{% endblock %}
+{% block description %}通过 ModelTrace 自动请求测试模型指纹，显示最可能模型、统一库概率、模型家族和概率表。结果独立于 Veridrop 协议评分。{% endblock %}
+{% block og_title %}ModelTrace 模型自动归因测试 · Veridrop{% endblock %}
+{% block og_description %}自动请求模型并展示 ModelTrace 归因结果，不需要手动粘贴输出。{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <h1>ModelTrace 模型自动归因</h1>
+  <p class="hero-sub" style="text-align:center;max-width:760px;margin:0 auto 14px;">
+    自动发送 ModelTrace 数字指纹挑战，识别候选库中最可能的模型和模型家族。
+    本测试独立于 Claude、OpenAI、Gemini 协议检测，不生成 Veridrop 协议总分。
+  </p>
+</section>
+
+<section class="card alert-card">
+  <strong>自动请求测试</strong>
+  填写目标接口、API key 和预期模型后，系统会自动完成请求和归因；不需要手动复制或粘贴模型输出。
+</section>
+
+<section class="card form-card">
+  <form id="detect-form" data-endpoint="/api/detect/modeltrace" autocomplete="off">
+    <div class="field">
+      <label for="base_url">接口地址</label>
+      <input type="url" id="base_url" name="base_url"
+             placeholder="{{ default_base_url or '请输入中转站接口地址' }}" />
+      <p class="hint">填写 API 根地址；系统会自动尝试 OpenAI Chat Completions 和 Anthropic Messages 格式。</p>
+    </div>
+
+    <div class="field">
+      <label for="api_key">API 密钥</label>
+      <input type="password" id="api_key" name="api_key" required
+             placeholder="请输入 API key" minlength="8" />
+      <p class="hint">只用于本次自动请求，不写入报告、不持久化。</p>
+    </div>
+
+    <div class="field">
+      <label for="model">预期模型</label>
+      <input type="text" id="model" name="model" autocomplete="off"
+             placeholder="{{ default_model or '请输入用于构造请求的模型名' }}"
+             maxlength="200" />
+      <p class="hint">仅用于构造请求和结果页标注，不参与 ModelTrace 概率计算。</p>
+    </div>
+
+    <button type="submit" id="submit-btn" class="btn btn-primary">开始自动测试</button>
+    <p class="form-error" id="form-error" hidden></p>
+  </form>
+</section>
+
+<section class="features">
+  <div class="feature">
+    <h3>最可能模型</h3>
+    <p>显示统一候选库中概率最高的模型和对应概率。</p>
+  </div>
+  <div class="feature">
+    <h3>模型家族</h3>
+    <p>显示 GPT、Claude 等模型家族的聚合概率。</p>
+  </div>
+  <div class="feature">
+    <h3>独立结果</h3>
+    <p>不参与现有协议评分和中转站质量榜，只保留自动归因历史。</p>
+  </div>
+</section>
+{% endblock %}

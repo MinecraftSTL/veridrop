@@ -77,13 +77,13 @@ def ping(
     base_url: str = typer.Option(
         None,
         "--base-url",
-        envvar="ANTHROPIC_BASE_URL",
+        envvar="BASE_URL",
         help="Relay station base URL, e.g. https://api.anthropic.com",
     ),
     api_key: str = typer.Option(
         None,
         "--api-key",
-        envvar="ANTHROPIC_API_KEY",
+        envvar="API_KEY",
         help="API key (sk-...).",
     ),
     model: str = typer.Option(
@@ -100,10 +100,10 @@ def ping(
     what the relay station actually returns.
     """
     if not base_url:
-        console.print("[red]error:[/red] --base-url or ANTHROPIC_BASE_URL is required")
+        console.print("[red]error:[/red] --base-url or BASE_URL is required")
         raise typer.Exit(2)
     if not api_key:
-        console.print("[red]error:[/red] --api-key or ANTHROPIC_API_KEY is required")
+        console.print("[red]error:[/red] --api-key or API_KEY is required")
         raise typer.Exit(2)
 
     asyncio.run(_run_ping(base_url, api_key, model, timeout))
@@ -182,14 +182,13 @@ def detect(
     base_url: str = typer.Option(
         None, "--base-url",
         help=(
-            "Relay station base URL. Reads the protocol-specific "
-            "*_BASE_URL environment variable."
+            "Relay station base URL. Reads the shared BASE_URL environment variable."
         ),
     ),
     api_key: str = typer.Option(
         None, "--api-key",
         help=(
-            "API key. Reads the protocol-specific *_API_KEY environment variable."
+            "API key. Reads the shared API_KEY environment variable."
         ),
     ),
     model: str = typer.Option(
@@ -248,12 +247,10 @@ def detect(
         }[proto]
         proto = _resolve_protocol(protocol, model)
 
-    # Per-protocol envvar fallback so users can keep distinct keys for
-    # each provider in the same .env without juggling them on the CLI.
     if not base_url:
-        base_url = os.environ.get(f"{proto.value.upper()}_BASE_URL") or ""
+        base_url = os.environ.get("BASE_URL") or ""
     if not api_key:
-        api_key = os.environ.get(f"{proto.value.upper()}_API_KEY") or ""
+        api_key = os.environ.get("API_KEY") or ""
 
     # Default endpoint when only an API key is supplied — convenient for
     # testing against the official OpenAI / Gemini APIs.
@@ -263,13 +260,13 @@ def detect(
     if not base_url:
         console.print(
             f"[red]error:[/red] --base-url required for {proto.value} "
-            f"(set {proto.value.upper()}_BASE_URL or pass --base-url)"
+            "(set BASE_URL or pass --base-url)"
         )
         raise typer.Exit(2)
     if not api_key:
         console.print(
             f"[red]error:[/red] --api-key required (set "
-            f"{proto.value.upper()}_API_KEY or pass --api-key)"
+            "API_KEY or pass --api-key)"
         )
         raise typer.Exit(2)
 
@@ -611,6 +608,71 @@ def _truncate(s: str, n: int) -> str:
 
 
 # ---------------------------------------------------------------------------
+# ModelTrace automatic attribution
+# ---------------------------------------------------------------------------
+
+
+@app.command("modeltrace")
+def modeltrace(
+    base_url: Optional[str] = typer.Option(
+        None, "--base-url", envvar="BASE_URL",
+        help="目标 API 根地址；默认读取 BASE_URL。",
+    ),
+    api_key: Optional[str] = typer.Option(
+        None, "--api-key", envvar="API_KEY",
+        help="本次自动请求使用的 API key；默认读取 API_KEY。",
+    ),
+    model: Optional[str] = typer.Option(
+        None, "--model", envvar="MODELTRACE_MODEL",
+        help="构造请求的预期模型；默认读取 MODELTRACE_MODEL。",
+    ),
+    output: Optional[Path] = typer.Option(
+        None, "--output", "-o", help="将原始 ModelTrace 结果写入 JSON。",
+    ),
+) -> None:
+    """Run the independent ModelTrace automatic attribution test."""
+    import json
+
+    base_url = (base_url or "").strip()
+    api_key = (api_key or "").strip()
+    model = (model or "").strip()
+    if not base_url:
+        console.print("[red]error:[/red] --base-url or BASE_URL is required")
+        raise typer.Exit(2)
+    if not api_key:
+        console.print("[red]error:[/red] --api-key or API_KEY is required")
+        raise typer.Exit(2)
+    if not model:
+        console.print("[red]error:[/red] --model or MODELTRACE_MODEL is required")
+        raise typer.Exit(2)
+
+    from .modeltrace import run_modeltrace
+
+    result = asyncio.run(run_modeltrace(base_url, api_key, model))
+    if output is not None:
+        output.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
+        console.print(f"[dim]ModelTrace JSON 写入: {output}[/dim]")
+
+    api_test = result.get("api_test") or {}
+    table = Table(title="ModelTrace 自动归因", show_header=False, expand=False)
+    table.add_column("field", style="bold cyan", no_wrap=True)
+    table.add_column("value")
+    table.add_row("expected_model", str(result.get("expected_model") or model))
+    table.add_row("prediction_name", str(result.get("prediction_name") or "无法判断"))
+    probability = result.get("probability")
+    table.add_row("probability", f"{float(probability) * 100:.2f}%" if isinstance(probability, (int, float)) else "—")
+    table.add_row("family_prediction_name", str(result.get("family_prediction_name") or "无法判断"))
+    family_probability = result.get("family_probability")
+    table.add_row("family_probability", f"{float(family_probability) * 100:.2f}%" if isinstance(family_probability, (int, float)) else "—")
+    table.add_row("used_outputs", f"{result.get('used_outputs') or 0}/{api_test.get('requested') or 3}")
+    table.add_row("attempted", f"{api_test.get('attempted') or 0}/{api_test.get('max_attempts') or 6}")
+    console.print(table)
+    if result.get("run_error"):
+        console.print(f"[red]ModelTrace 自动测试失败:[/red] {result['run_error']}")
+        raise typer.Exit(1)
+
+
+# ---------------------------------------------------------------------------
 # OpenAI protocol template tools
 # ---------------------------------------------------------------------------
 
@@ -723,14 +785,14 @@ def openai_baseline(
     base_url: str = typer.Option(
         "https://api.openai.com/v1",
         "--base-url",
-        envvar="OPENAI_BASE_URL",
+        envvar="BASE_URL",
         help="OpenAI API base URL. Official baseline defaults to https://api.openai.com/v1.",
     ),
     api_key: Optional[str] = typer.Option(
         None,
         "--api-key",
-        envvar="OPENAI_API_KEY",
-        help="OpenAI API key. Prefer OPENAI_API_KEY or .env instead of typing it here.",
+        envvar="API_KEY",
+        help="OpenAI API key. Prefer API_KEY or .env instead of typing it here.",
     ),
     model: str = typer.Option(
         "gpt-5.5",
@@ -759,7 +821,7 @@ def openai_baseline(
     """Collect an official OpenAI protocol baseline from live API responses."""
 
     if not api_key:
-        console.print("[red]error:[/red] --api-key or OPENAI_API_KEY is required")
+        console.print("[red]error:[/red] --api-key or API_KEY is required")
         console.print("[dim]建议把 key 放到环境变量或项目 .env,不要粘贴到聊天里。[/dim]")
         raise typer.Exit(2)
 
