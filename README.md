@@ -26,7 +26,7 @@ Completions, and the Gemini OpenAI-compatible API.
 [![Tests](https://github.com/canarybyte/veridrop/actions/workflows/test.yml/badge.svg)](https://github.com/canarybyte/veridrop/actions/workflows/test.yml)
 [![在线服务](https://img.shields.io/badge/%E5%9C%A8%E7%BA%BF%E6%9C%8D%E5%8A%A1-veridrop.org-10b981.svg)](https://veridrop.org)
 
-**在线使用(无需克隆代码)**:[veridrop.org](https://veridrop.org) · 协议页直达:[Claude 中转站检测](https://veridrop.org/claude) · [OpenAI 中转站检测](https://veridrop.org/openai) · [Gemini 中转站检测](https://veridrop.org/gemini) · [中转站红黑榜](https://veridrop.org/leaderboard) · [常见问题 FAQ](https://veridrop.org/faq)
+**在线使用(无需克隆代码)**:[veridrop.org](https://veridrop.org) · 协议页直达:[Claude 中转站检测](https://veridrop.org/claude) · [OpenAI 中转站检测](https://veridrop.org/openai) · [Gemini 中转站检测](https://veridrop.org/gemini) · [ModelTrace 自动归因](https://veridrop.org/modeltrace) · [中转站红黑榜](https://veridrop.org/leaderboard) · [常见问题 FAQ](https://veridrop.org/faq)
 
 > **Veridrop 是开源的 AI API 中转站真伪检测工具。**
 > 输入 `base_url + api_key + model`,它会自动探测中转站是否真的转发到宣称的 Claude / OpenAI / Gemini 模型,
@@ -210,7 +210,34 @@ nano .env  # 填 VERIDROP_SITE_URL，以及对应协议的 API 环境变量
 | **▲ 轻微 (minor)** | 能用但有协议偏差 | 1-2 题失败 / CV 偏高 / 1-2 个 issues |
 | **✓ 一致 (ok)** | 跟官方基线一致 | 关键字段全部匹配 |
 
-#### 启动 Web 服务(本地)
+#### 共享环境变量
+
+CLI 和后台任务使用以下统一配置：
+
+| 变量 | 用途 |
+|---|---|
+| `BASE_URL` | 三种协议检测和 ModelTrace 共用的默认 API 根地址 |
+| `API_KEY` | CLI 和后台任务使用的默认 API key；网页表单不会回显它 |
+| `ANTHROPIC_MODEL` | Claude 协议默认模型 |
+| `OPENAI_MODEL` | OpenAI 协议默认模型 |
+| `GEMINI_MODEL` | Gemini 协议默认模型 |
+| `MODELTRACE_MODEL` | ModelTrace 请求模型和结果页预期模型 |
+
+不再读取 provider-specific 的 base URL 或 API key 环境变量。官方协议 URL 仍可由 CLI 内置 fallback 提供。
+
+### ModelTrace 独立自动归因
+
+ModelTrace 是独立于 Claude、OpenAI、Gemini 协议检测的自动测试方式。通过 [ModelTrace 页面](https://veridrop.org/modeltrace) 填写 `base_url`、`api_key` 和预期 `model` 后，Veridrop 会自动尝试 OpenAI Chat Completions 与 Anthropic Messages，请求最多 6 次以获取最多 3 份有效数字回答，再调用统一候选库指纹算法。无需手动粘贴模型输出。
+
+结果页显示预期模型、最可能模型、统一库概率、模型家族、家族概率、有效查询、候选模型概率表和自动请求诊断。这里的 probability 是上游统一候选库内的归因置信度，不是 Veridrop 协议合规分；ModelTrace 报告不进入现有协议 leaderboard，也不参与协议总分。历史记录见 `/modeltrace/leaderboard`。
+
+CLI 等价命令：
+
+```bash
+veridrop modeltrace --base-url https://relay.example/v1 --api-key $API_KEY --model gpt-5.5 -o out/modeltrace.json
+```
+
+### 启动 Web 服务(本地)
 
 ```bash
 ./venv/bin/uvicorn web.server:app --host 0.0.0.0 --port 8000
@@ -247,8 +274,8 @@ relay-detector detect [OPTIONS]
 
 | Flag | 默认 | 说明 |
 |---|---|---|
-| `--base-url` | `$<PROTOCOL>_BASE_URL` | 中转站根 URL |
-| `--api-key` | `$<PROTOCOL>_API_KEY` | API key |
+| `--base-url` | `$BASE_URL` | 中转站根 URL |
+| `--api-key` | `$API_KEY` | API key |
 | `--model` | `$<PROTOCOL>_MODEL` | 测试目标模型；未设置时使用协议默认模型 |
 | `--mode` | `standard` | `quick` / `standard` / `full` |
 | `--protocol` | 自动 | `anthropic` / `openai` / `gemini` |
@@ -328,9 +355,11 @@ veridrop/
 │       ├── openai/             # GPT 7 detector
 │       └── gemini/             # Gemini 7 detector
 │
+├── third_party/ModelTrace/     # xqy2006/ModelTrace 上游源码与 MIT License
 ├── web/                        # FastAPI 网页端
-│   ├── server.py               # 路由:/、/claude、/openai、/gemini、/r/{id}、/leaderboard、/faq
+│   ├── server.py               # 路由:/、/claude、/openai、/gemini、/modeltrace、/r/{id}、/leaderboard、/faq
 │   ├── jobs.py                 # 任务队列(asyncio Semaphore 限并发 6)
+│   ├── modeltrace_history.py   # ModelTrace 独立历史记录
 │   ├── probe.py                # 提交前 GET /v1/models 探活
 │   ├── leaderboard.py          # 中转站红黑榜聚合
 │   ├── image_report.py         # 报告 → JPG 卡片
@@ -479,3 +508,13 @@ Veridrop 的核心交易是「你把 API key 给我,我帮你测中转站真假�
 本分支更改了主题，增删了部分功能，以作为更简洁纯粹的测试网站并更方便自用
 
 保留了页脚的版权声明作为必要版权声明，但更改了图标、说明文本等以方便主题更改，如有问题烦请联系我
+
+---
+
+## ModelTrace 来源与许可证
+
+ModelTrace 算法源码来自 [xqy2006/ModelTrace](https://github.com/xqy2006/ModelTrace)，上游 MIT License 和版权声明保留在 `third_party/ModelTrace/LICENSE`，上游 README、数据文件及 Codex 插件文件也随源码快照保留。Veridrop 只新增 `src/relay_detector/modeltrace/adapter.py`、异步任务、报告持久化、网页入口、历史页和 JPG 展示；不启动上游 Flask 页面。
+
+当前工作树中的来源是用户提供的 `ModelTrace-main.zip`。该 ZIP 不含 Git 元数据，因此无法从归档可靠恢复上游 commit SHA 或完整 Git subtree 历史；报告中的 `source_revision` 会明确标注这一事实，不把快照伪称为完整历史合入。
+
+ModelTrace 的 `probability` 与 `family_probability` 只表示统一候选库归因结果，不等于 Veridrop 的协议真伪分、质量分或排行榜分数。
