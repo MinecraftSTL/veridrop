@@ -26,9 +26,9 @@ def _capture_detect(monkeypatch):
     return captured
 
 
-def test_openai_detect_reads_openai_environment(monkeypatch):
-    monkeypatch.setenv("OPENAI_BASE_URL", "https://openai-relay.example/v1")
-    monkeypatch.setenv("OPENAI_API_KEY", "openai-test-key")
+def test_openai_detect_reads_shared_environment(monkeypatch):
+    monkeypatch.setenv("BASE_URL", "https://openai-relay.example/v1")
+    monkeypatch.setenv("API_KEY", "openai-test-key")
     monkeypatch.setenv("OPENAI_MODEL", "gpt-test-model")
     captured = _capture_detect(monkeypatch)
 
@@ -43,9 +43,9 @@ def test_openai_detect_reads_openai_environment(monkeypatch):
     }
 
 
-def test_gemini_detect_reads_gemini_environment(monkeypatch):
-    monkeypatch.setenv("GEMINI_BASE_URL", "https://gemini-relay.example/v1")
-    monkeypatch.setenv("GEMINI_API_KEY", "gemini-test-key")
+def test_gemini_detect_reads_shared_environment(monkeypatch):
+    monkeypatch.setenv("BASE_URL", "https://gemini-relay.example/v1")
+    monkeypatch.setenv("API_KEY", "gemini-test-key")
     monkeypatch.setenv("GEMINI_MODEL", "gemini-test-model")
     captured = _capture_detect(monkeypatch)
 
@@ -139,3 +139,55 @@ def test_openai_and_gemini_allow_environment_backed_fields_to_be_empty():
         assert 'id="base_url" name="base_url" required' not in rendered
         assert 'id="model" name="model" required' not in rendered
         assert 'id="api_key" name="api_key" required' in rendered
+
+def test_modeltrace_form_uses_shared_defaults_without_rendering_key():
+    rendered = server.templates.get_template("modeltrace.html").render(
+        default_base_url="https://relay.example/v1",
+        default_model="trace-model",
+    )
+    assert 'placeholder="https://relay.example/v1"' in rendered
+    assert 'placeholder="trace-model"' in rendered
+    assert "server-secret" not in rendered
+    assert "自动请求测试" in rendered
+
+
+def test_old_provider_specific_credentials_are_not_used(monkeypatch):
+    monkeypatch.delenv("BASE_URL", raising=False)
+    monkeypatch.delenv("API_KEY", raising=False)
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://old.example/v1")
+    monkeypatch.setenv("OPENAI_API_KEY", "old-secret")
+    captured = _capture_detect(monkeypatch)
+
+    result = runner.invoke(cli.app, ["detect", "--protocol", "openai"])
+
+    assert result.exit_code == 2
+    assert captured == {}
+    assert "old-secret" not in result.output
+
+
+def test_modeltrace_result_template_omits_protocol_score_semantics():
+    rendered = server.templates.get_template("result.html").render(
+        SITE_URL="https://verify.example.com",
+        report_url="https://verify.example.com/r/trace-123",
+        job_id="trace-123",
+        report={
+            "test_method": "modeltrace",
+            "protocol": "modeltrace",
+            "expected_model": "gpt-test",
+            "prediction_name": "GPT Test",
+            "probability": 0.75,
+            "family_prediction_name": "GPT",
+            "family_probability": 0.8,
+            "used_outputs": 3,
+            "results": [],
+            "api_test": {"requested": 3, "received": 3, "attempted": 3, "max_attempts": 6},
+        },
+        rows=[],
+        report_notes=[],
+        breadcrumb_domain="relay.example",
+    )
+    assert "ModelTrace 归因结果" in rendered
+    assert "GPT Test" in rendered
+    assert "总分" not in rendered
+    assert "score-ring" not in rendered
+    assert "协议合规分" in rendered
