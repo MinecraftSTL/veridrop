@@ -624,7 +624,7 @@ def modeltrace(
     ),
     model: Optional[str] = typer.Option(
         None, "--model", envvar="MODELTRACE_MODEL",
-        help="构造请求的预期模型；默认读取 MODELTRACE_MODEL。",
+        help="请求模型；默认读取 MODELTRACE_MODEL。",
     ),
     output: Optional[Path] = typer.Option(
         None, "--output", "-o", help="将原始 ModelTrace 结果写入 JSON。",

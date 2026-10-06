@@ -715,7 +715,7 @@ def _seo_meta_for_report(report: dict) -> dict[str, str]:
         probability = float(report.get("probability") or 0) * 100
         title = f"{domain} ModelTrace 归因：{predicted} {probability:.1f}% | Veridrop"
         description = (
-            f"ModelTrace 自动归因报告：预期模型 {expected}，最可能模型 {predicted}，"
+            f"ModelTrace 自动归因报告：请求模型 {expected}，最可能模型 {predicted}，"
             f"统一库概率 {probability:.1f}%。该概率不属于 Veridrop 协议评分。"
         )
         return {

@@ -50,7 +50,7 @@
   <div>
     <h1>ModelTrace 归因结果</h1>
     <p class="muted">
-      预期模型:<code>{{ report.expected_model or report.target_model }}</code> ·
+      请求模型:<code>{{ report.expected_model or report.target_model }}</code> ·
       接口:<code>{{ report.base_url }}</code>
     </p>
   </div>
@@ -65,7 +65,7 @@
 {% endif %}
 
 <section class="metrics-row">
-  <div class="metric"><div class="metric-label">预期模型</div><div class="metric-value"><code>{{ report.expected_model or report.target_model or '—' }}</code></div></div>
+  <div class="metric"><div class="metric-label">请求模型</div><div class="metric-value"><code>{{ report.expected_model or report.target_model or '—' }}</code></div></div>
   <div class="metric"><div class="metric-label">最可能模型</div><div class="metric-value"><code>{{ report.prediction_name or '无法判断' }}</code></div></div>
   <div class="metric"><div class="metric-label">统一库概率</div><div class="metric-value">{% if report.probability is defined and report.probability is not none %}{{ '%.2f' | format(report.probability * 100) }}%{% else %}无法判断{% endif %}</div></div>
   <div class="metric"><div class="metric-label">模型家族</div><div class="metric-value"><code>{{ report.family_prediction_name or '无法判断' }}</code></div></div>

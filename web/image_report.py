@@ -333,7 +333,7 @@ def _render_modeltrace_jpg(
     family = str(report.get("family_prediction_name") or "无法判断")
     family_probability = float(report.get("family_probability") or 0) * 100
     used = int(report.get("used_outputs") or 0)
-    cards = [("预期模型", expected), ("最可能模型", prediction), ("统一库概率", f"{probability:.2f}%"),
+    cards = [("请求模型", expected), ("最可能模型", prediction), ("统一库概率", f"{probability:.2f}%"),
              ("模型家族", family), ("家族概率 / 有效查询", f"{family_probability:.2f}% / {used}/3")]
     x0, y0, gap = 60, 130, 14
     card_w = (W - 120 - gap * 4) // 5

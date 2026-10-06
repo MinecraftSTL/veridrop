@@ -8,7 +8,7 @@
   <h2 id="status-headline">正在检测中…</h2>
   <p class="muted">
     {% if job.test_method == 'modeltrace' %}
-    预期模型:<code>{{ job.target_model }}</code> · 测试方式 <code>ModelTrace 自动归因</code><br/>
+    请求模型:<code>{{ job.target_model }}</code> · 测试方式 <code>ModelTrace 自动归因</code><br/>
     接口:<code>{{ job.base_url }}</code>
     {% else %}
     目标模型:<code>{{ job.target_model }}</code> · 检测深度 <code>{{ job.mode }}</code><br/>

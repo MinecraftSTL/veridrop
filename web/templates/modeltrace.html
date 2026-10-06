@@ -10,13 +10,12 @@
   <h1>ModelTrace 模型自动归因</h1>
   <p class="hero-sub" style="text-align:center;max-width:760px;margin:0 auto 14px;">
     自动发送 ModelTrace 数字指纹挑战，识别候选库中最可能的模型和模型家族。
-    本测试独立于 Claude、OpenAI、Gemini 协议检测，不生成 Veridrop 协议总分。
   </p>
 </section>
 
 <section class="card alert-card">
   <strong>自动请求测试</strong>
-  填写目标接口、API key 和预期模型后，系统会自动完成请求和归因；不需要手动复制或粘贴模型输出。
+  填写目标接口、API key 和请求模型后，系统会自动完成请求和归因。
 </section>
 
 <section class="card form-card">
@@ -36,11 +35,11 @@
     </div>
 
     <div class="field">
-      <label for="model">预期模型</label>
+      <label for="model">请求模型</label>
       <input type="text" id="model" name="model" autocomplete="off"
-             placeholder="{{ default_model or '请输入用于构造请求的模型名' }}"
+             placeholder="{{ default_model or '输入请求的模型名' }}"
              maxlength="200" />
-      <p class="hint">仅用于构造请求和结果页标注，不参与 ModelTrace 概率计算。</p>
+      <p class="hint">用于构造请求和结果页标注。</p>
     </div>
 
     <button type="submit" id="submit-btn" class="btn btn-primary">开始自动测试</button>
