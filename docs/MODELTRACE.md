@@ -12,7 +12,7 @@ ModelTrace 是 Veridrop 之外的一种独立模型归因方式。它不加入 A
 
 - `base_url`：目标 API 根地址；
 - `api_key`：只用于本次任务；
-- `model`：构造请求时使用的模型名，同时作为结果页的“预期模型”。
+- `model`：请求模型名。
 
 提交后适配层调用上游 `enrollment.test_automatic`。它会自动尝试 OpenAI Chat Completions 与 Anthropic Messages 格式，最多执行 6 次挑战请求，目标获取 3 份满足数字数量阈值的有效回答。失败、拒答、截断和有效数字不足的回答会记录到自动请求诊断，不会被伪装为成功回答。
 

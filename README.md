@@ -221,15 +221,15 @@ CLI 和后台任务使用以下统一配置：
 | `ANTHROPIC_MODEL` | Claude 协议默认模型 |
 | `OPENAI_MODEL` | OpenAI 协议默认模型 |
 | `GEMINI_MODEL` | Gemini 协议默认模型 |
-| `MODELTRACE_MODEL` | ModelTrace 请求模型和结果页预期模型 |
+| `MODELTRACE_MODEL` | ModelTrace 请求模型，同时用于结果页标注 |
 
 不再读取 provider-specific 的 base URL 或 API key 环境变量。官方协议 URL 仍可由 CLI 内置 fallback 提供。
 
 ### ModelTrace 独立自动归因
 
-ModelTrace 是独立于 Claude、OpenAI、Gemini 协议检测的自动测试方式。通过 [ModelTrace 页面](https://veridrop.org/modeltrace) 填写 `base_url`、`api_key` 和预期 `model` 后，Veridrop 会自动尝试 OpenAI Chat Completions 与 Anthropic Messages，请求最多 6 次以获取最多 3 份有效数字回答，再调用统一候选库指纹算法。无需手动粘贴模型输出。
+ModelTrace 是独立于 Claude、OpenAI、Gemini 协议检测的自动测试方式。通过 [ModelTrace 页面](https://veridrop.org/modeltrace) 填写 `base_url`、`api_key` 和请求模型 `model` 后，Veridrop 会自动尝试 OpenAI Chat Completions 与 Anthropic Messages，请求最多 6 次以获取最多 3 份有效数字回答，再调用统一候选库指纹算法。无需手动粘贴模型输出。
 
-结果页显示预期模型、最可能模型、统一库概率、模型家族、家族概率、有效查询、候选模型概率表和自动请求诊断。这里的 probability 是上游统一候选库内的归因置信度，不是 Veridrop 协议合规分；ModelTrace 报告不进入现有协议 leaderboard，也不参与协议总分。历史记录见 `/modeltrace/leaderboard`。
+结果页显示请求模型、最可能模型、统一库概率、模型家族、家族概率、有效查询、候选模型概率表和自动请求诊断。这里的 probability 是上游统一候选库内的归因置信度，不是 Veridrop 协议合规分；ModelTrace 报告不进入现有协议 leaderboard，也不参与协议总分。历史记录见 `/modeltrace/leaderboard`。
 
 CLI 等价命令：
 
