@@ -21,6 +21,7 @@ const boundedModels = [
   { id: 'gpt-6-sol', family: 'gpt', provider: 'codex', reasoningEffort: 'low', cliVersion: '0.155.1' },
   { id: 'gpt-6-luna', family: 'gpt', provider: 'codex', reasoningEffort: 'low', cliVersion: '0.155.1' },
   { id: 'claude-opus-5-5', family: 'claude', provider: 'oaipro', responseModel: 'claude-opus-5-5', cleanRawNumbers: true },
+  { id: 'claude-haiku-5-5', family: 'claude', provider: 'oaipro', responseModel: 'claude-haiku-5-5', cleanRawNumbers: true },
 ];
 
 function parseNumbers(text) {

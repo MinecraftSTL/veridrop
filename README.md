@@ -524,6 +524,6 @@ Veridrop 的核心交易是「你把 API key 给我,我帮你测中转站真假�
 
 ModelTrace 算法源码来自 [xqy2006/ModelTrace](https://github.com/xqy2006/ModelTrace)，上游 MIT License 和版权声明保留在 `third_party/ModelTrace/LICENSE`，上游 README、数据文件及 Codex 插件文件也随源码快照保留。Veridrop 只新增 `src/relay_detector/modeltrace/adapter.py`、异步任务、报告持久化、网页入口、历史页和 JPG 展示；不启动上游 Flask 页面。
 
-当前工作树中的来源是用户提供的 `ModelTrace-main.zip`。已通过 GitHub API 核对 ZIP 中核心文件的 Git blob，对应上游 commit 为 `d4131b30243dfa05e70180b5eedde742103f1d73`。ZIP 不含 Git 元数据，因此本地保留的是可审查源码快照，不把它伪称为保留完整提交图的 subtree 历史；报告中的 `source_commit` 和 `source_revision` 会记录该 SHA。
+当前内置源码快照固定于上游 commit `6cd4a8ff0f3f4e49d6d6969dd2fbadfa1569fde2`，位于 `third_party/ModelTrace/`，保留上游 MIT License、README、数据和插件文件，以及 Veridrop 所需的包导入兼容调整。该快照不包含上游完整 Git 提交历史；报告中的 `source_commit` 和 `source_revision` 记录此 SHA。
 
 ModelTrace 的 `probability` 与 `family_probability` 只表示统一候选库归因结果，不等于 Veridrop 的协议真伪分、质量分或排行榜分数。
