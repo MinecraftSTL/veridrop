@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections import Counter
+import hashlib
 import json
 
 import pytest
@@ -15,6 +17,79 @@ def test_unified_bank_loads():
     bank = adapter._load_unified_bank()
     assert bank["models"]
     assert bank["calibration"]
+
+
+@pytest.fixture
+def haiku_55_references():
+    path = adapter.MODELTRACE_ROOT / "data" / "claude_reference.jsonl"
+    rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return [row for row in rows if row["model_id"] == "claude-haiku-5-5"]
+
+
+def test_updated_bank_contains_complete_haiku_55_references(haiku_55_references):
+    bank = adapter._load_unified_bank()
+    models = {model["id"]: model for model in bank["models"]}
+    model = models["claude-haiku-5-5"]
+    assert "claude-haiku-4-5-20251001" in models
+    assert model["family"] == "claude"
+    assert model["response_count"] == len(haiku_55_references) == 36
+    assert model["valid_number_count"] == sum(row["parsed_count"] for row in haiku_55_references)
+    conditions = Counter(row["condition_id"] for row in haiku_55_references)
+    assert sorted(conditions.values()) == [3] * 12
+    assert all(row["strict_valid"] for row in haiku_55_references)
+
+
+@pytest.mark.parametrize("relative_path", [
+    "data/unified_bank.json",
+    "static/data/unified_bank.json",
+    "codex-plugin/modeltrace-guard/assets/unified_bank.json",
+])
+def test_updated_bank_matches_upstream_provenance(relative_path):
+    root = adapter.MODELTRACE_ROOT
+    provenance_path = root / "codex-plugin/modeltrace-guard/assets/provenance.json"
+    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    data = (root / relative_path).read_bytes().replace(b"\r\n", b"\n")
+    assert hashlib.sha256(data).hexdigest() == provenance["bankSha256"]
+    bank = json.loads(data)
+    assert len(bank["models"]) == provenance["modelCount"]
+    assert bank["built_at"] == provenance["bankBuiltAt"]
+    assert bank["calibration"] == adapter._load_unified_bank()["calibration"]
+
+
+@pytest.mark.parametrize("request_model", ["claude-haiku-5-5", "request-only-alias"])
+def test_updated_bank_flows_through_automatic_adapter(monkeypatch, haiku_55_references, request_model):
+    references = haiku_55_references[:6]
+    calls = []
+    outputs = iter(references)
+    monkeypatch.setattr(enrollment, "generate_challenges", lambda count: [
+        {"prompt": row["prompt"], "expected_count": row["requested_count"]}
+        for row in references[:count]
+    ])
+
+    def fake_completion(base_url, api_key, api_model, *args, **kwargs):
+        calls.append(api_model)
+        return next(outputs)["text"]
+
+    monkeypatch.setattr(enrollment, "request_completion", fake_completion)
+    result = adapter._run_sync("https://relay.example", "test-secret", request_model)
+    assert calls == [request_model] * 3
+    assert result["expected_model"] == request_model
+    assert result["prediction_name"] == "claude-haiku-5-5"
+    assert result["family_prediction"] == "claude"
+    assert result["used_outputs"] == result["api_test"]["received"] == 3
+    assert result["api_test"]["attempted"] == 3
+    assert result["api_test"]["errors"] == []
+    assert result["source_commit"] == result["source_revision"] == adapter.MODELTRACE_SOURCE_COMMIT
+    expected = enrollment.analyze_global_outputs([
+        {"text": row["text"], "expected_count": row["requested_count"]}
+        for row in references[:3]
+    ], adapter._load_unified_bank())
+    assert result["results"] == expected["results"]
+    assert result["probability"] == expected["probability"]
+    assert result["family_probability"] == expected["family_probability"]
+    assert sum(row["probability"] for row in result["results"]) == pytest.approx(1.0)
+    assert len(result["results"]) == len(adapter._load_unified_bank()["models"])
+    assert "test-secret" not in json.dumps(result)
 
 
 def test_request_completion_auto_detects_openai(monkeypatch):

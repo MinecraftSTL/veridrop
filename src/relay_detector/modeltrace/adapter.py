@@ -14,8 +14,8 @@ from third_party.ModelTrace.fingerprint import load_bank
 MODELTRACE_ROOT = Path(__file__).resolve().parents[3] / "third_party" / "ModelTrace"
 MODELTRACE_BANK = MODELTRACE_ROOT / "data" / "unified_bank.json"
 MODELTRACE_SOURCE = "xqy2006/ModelTrace"
-MODELTRACE_SOURCE_REVISION = "d4131b30243dfa05e70180b5eedde742103f1d73"
-MODELTRACE_SOURCE_COMMIT: str | None = "d4131b30243dfa05e70180b5eedde742103f1d73"
+MODELTRACE_SOURCE_REVISION = "6cd4a8ff0f3f4e49d6d6969dd2fbadfa1569fde2"
+MODELTRACE_SOURCE_COMMIT: str | None = "6cd4a8ff0f3f4e49d6d6969dd2fbadfa1569fde2"
 MODELTRACE_LICENSE = "MIT"
 
 
