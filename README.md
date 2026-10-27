@@ -14,7 +14,7 @@ the field, protocol, and cryptographic level — answering three questions:
 3. **Compliance** — do response fields, streaming event sequences, and usage
    accounting match the official API specs?
 
-The hosted service at **[veridrop.org](https://veridrop.org)** is free,
+The hosted service at **[veridrop.app](https://veridrop.app)** is free,
 requires no signup, and never persists API keys. To date the community has
 run **44,000+ public detections across 6,500+ relay providers**, aggregated
 into a Bayesian-weighted public leaderboard, with **~1,500–1,800 daily unique
@@ -24,20 +24,29 @@ Completions, and the Gemini OpenAI-compatible API.
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Tests](https://github.com/canarybyte/veridrop/actions/workflows/test.yml/badge.svg)](https://github.com/canarybyte/veridrop/actions/workflows/test.yml)
-[![在线服务](https://img.shields.io/badge/%E5%9C%A8%E7%BA%BF%E6%9C%8D%E5%8A%A1-veridrop.org-10b981.svg)](https://veridrop.org)
+[![在线服务](https://img.shields.io/badge/%E5%9C%A8%E7%BA%BF%E6%9C%8D%E5%8A%A1-veridrop.app-10b981.svg)](https://veridrop.app)
 
-**在线使用(无需克隆代码)**:[veridrop.org](https://veridrop.org) · 协议页直达:[Claude 中转站检测](https://veridrop.org/claude) · [OpenAI 中转站检测](https://veridrop.org/openai) · [Gemini 中转站检测](https://veridrop.org/gemini) · [ModelTrace 自动归因](https://veridrop.org/modeltrace) · [中转站红黑榜](https://veridrop.org/leaderboard) · [常见问题 FAQ](https://veridrop.org/faq)
+**在线使用(无需克隆代码)**:[veridrop.app](https://veridrop.app) · 协议页直达:[Claude 中转站检测](https://veridrop.app/claude) · [OpenAI 中转站检测](https://veridrop.app/openai) · [Gemini 中转站检测](https://veridrop.app/gemini) · [ModelTrace 自动归因](https://veridrop.app/modeltrace) · [中转站红黑榜](https://veridrop.app/leaderboard) · [常见问题 FAQ](https://veridrop.app/faq)
 
 > **Veridrop 是开源的 AI API 中转站真伪检测工具。**
 > 输入 `base_url + api_key + model`,它会自动探测中转站是否真的转发到宣称的 Claude / OpenAI / Gemini 模型,
 > 是否剥离了 PDF、Tool Use、Thinking、Function Calling、长上下文等关键能力,
 > 以及响应字段、流式协议、usage 计费字段是否符合官方规范。
 >
-> 线上版在 [veridrop.org](https://veridrop.org),无需注册,API key 不落盘。
+> 线上服务：[veridrop.app](https://veridrop.app)（国内可直接访问）· 备用：[veridrop.org](https://veridrop.org)。无需注册，API key 不落盘。
 > 也可以自托管运行,完整检测逻辑、评分权重和字段证据都在本仓库公开。
 >
 > ⭐ 如果 Veridrop 帮你识别过假中转、避过坑,欢迎给这个仓库点个 Star。
 > Star 会让更多开发者和站长看到这个开源检测工具,也支持「评分独立、证据公开、付费不改分」的透明检测生态。
+
+## 当前可用网址
+
+更新日期：2026-09-20
+
+- **推荐入口：[veridrop.app](https://veridrop.app)**（国内可直接访问，海外也可使用）
+- **主域 / 备用：[veridrop.org](https://veridrop.org)**（国内访问受限时，请使用上面的入口）
+
+域名如有变更，将优先更新此处。建议收藏[本 GitHub 项目页](https://github.com/canarybyte/veridrop)，以本区块公布的地址为准。
 
 ---
 
@@ -49,7 +58,7 @@ Completions, and the Gemini OpenAI-compatible API.
 
 支持三大协议:**Anthropic Messages API**、**OpenAI Chat Completions**、**Gemini OpenAI 兼容 API**。
 
-线上服务:[veridrop.org](https://veridrop.org)(免费、无需注册、API key 不落盘)
+线上服务：[veridrop.app](https://veridrop.app)（国内可直接访问）· 备用：[veridrop.org](https://veridrop.org) — 免费、无需注册、API key 不落盘。
 
 ---
 
@@ -58,7 +67,7 @@ Completions, and the Gemini OpenAI-compatible API.
 Veridrop 的检测算法、评分逻辑和报告证据保持开源透明。你可以用两种方式支持项目继续维护:
 
 1. **给 GitHub 仓库点 Star**:让更多中文开发者和站长找到这个项目。
-2. **商务合作 / 认证收录**:见 [Veridrop 商务合作](https://veridrop.org/business)。
+2. **商务合作 / 认证收录**:见 [Veridrop 商务合作](https://veridrop.app/business)。
 
 > 合作不会改变检测分数、verdict、critical 严重问题或排行榜算法。
 > Veridrop 的价值来自公开证据,不是人工背书。
@@ -149,7 +158,7 @@ OpenAI / Gemini 没有同等级别的服务端签名机制,验证强度只到**�
 
 ## 两种使用方式
 
-### A. 直接用 [veridrop.org](https://veridrop.org)
+### A. 直接用 [veridrop.app](https://veridrop.app)
 
 打开网页 → 选协议页(Claude / OpenAI / Gemini)→ 粘贴 `base_url + api_key + model` → 点检测,30–75 秒出报告。
 
@@ -227,7 +236,7 @@ CLI 和后台任务使用以下统一配置：
 
 ### ModelTrace 独立自动归因
 
-ModelTrace 是独立于 Claude、OpenAI、Gemini 协议检测的自动测试方式。通过 [ModelTrace 页面](https://veridrop.org/modeltrace) 填写 `base_url`、`api_key` 和请求模型 `model` 后，Veridrop 会自动尝试 OpenAI Chat Completions 与 Anthropic Messages，请求最多 6 次以获取最多 3 份有效数字回答，再调用统一候选库指纹算法。无需手动粘贴模型输出。
+ModelTrace 是独立于 Claude、OpenAI、Gemini 协议检测的自动测试方式。通过 [ModelTrace 页面](https://veridrop.app/modeltrace) 填写 `base_url`、`api_key` 和请求模型 `model` 后，Veridrop 会自动尝试 OpenAI Chat Completions 与 Anthropic Messages，请求最多 6 次以获取最多 3 份有效数字回答，再调用统一候选库指纹算法。无需手动粘贴模型输出。
 
 结果页显示请求模型、最可能模型、统一库概率、模型家族、家族概率、有效查询、候选模型概率表和自动请求诊断。这里的 probability 是上游统一候选库内的归因置信度，不是 Veridrop 协议合规分；ModelTrace 报告不进入现有协议 leaderboard，也不参与协议总分。历史记录见 `/modeltrace/leaderboard`。
 
@@ -488,7 +497,7 @@ A: 当前覆盖 Anthropic Messages API、OpenAI Chat Completions、Gemini OpenAI
 - ✅ 自托管研究、学术使用:随便,免费
 - ⚠️ **作为公开 SaaS 运行**(给第三方提供服务):**必须把你的修改也开源**(AGPL §13 网络条款)
 
-如需商业不开源授权、认证收录或赞助合作,见 [商务合作](https://veridrop.org/business)。
+如需商业不开源授权、认证收录或赞助合作,见 [商务合作](https://veridrop.app/business)。
 
 ## 贡献
 
